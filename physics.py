@@ -73,6 +73,19 @@ def perm(phi, param):
 
 # ======================================================================
 
+def strain_rate(u):
+    """Second invariant of the strain rate tensor"""
+
+    # Strain rate tensor
+    srate = sym(grad(u))
+
+    # Second invariant
+    sec_inv = sqrt(0.5*inner(srate, srate))
+
+    return sec_inv
+
+# ======================================================================
+
 def stress(phi, p, u, param):
     """Total stress tensor"""
 

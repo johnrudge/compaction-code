@@ -114,8 +114,9 @@ def parse_param_file(filename):
 
 # ======================================================================
 
-def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, vel_pert_out, velocity_out, \
-              pressure_out, porosity_out, divU_out, shear_visc_out, bulk_visc_out, perm_out):
+def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, srate, \
+              vel_pert_out, velocity_out, pressure_out, porosity_out, \
+              divU_out, shear_visc_out, bulk_visc_out, perm_out, strain_rate_out):
     """Write vector and scalar fields to files"""
     # Note: Renaming fields so that they are easier to distinguish in Paraview
 
@@ -142,16 +143,25 @@ def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, vel_pert_out, veloc
     phi.rename("porosity", "")
     porosity_out  << phi
 
-    # Rheology fields
+    # Shear viscosity field
     shear_visc_proj = project(shear_visc, Q)
     shear_visc_proj.rename("shear_viscosity", "")
     shear_visc_out  << shear_visc_proj
+
+    # Bulk viscosity field
     bulk_visc_proj  = project(bulk_visc, Q)
     bulk_visc_proj.rename("bulk_viscosity", "")
     bulk_visc_out   << bulk_visc_proj
+
+    # Permeability field
     perm_proj       = project(perm, Q)
     perm_proj.rename("permeability", "")
     perm_out        << perm_proj
+
+    # Strain rate field (second invariant)
+    srate_proj       = project(srate, Q)
+    srate_proj.rename("strain_rate", "")
+    strain_rate_out  << srate_proj
 
 # ======================================================================
 

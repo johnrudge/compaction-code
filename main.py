@@ -32,7 +32,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 11 Sept 2013 by Laura Alisic
+# Last modified: 17 Dec 2013 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -64,7 +64,6 @@ def porosity_forms(V, phi0, u, dt):
     F       += stab
 
     return lhs(F), rhs(F)
-
 
 def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
@@ -183,6 +182,7 @@ perm_out       = File(output_dir + "permeability." + extension)
 compaction_out = File(output_dir + "compaction." + extension)
 num_ds_dt_out  = File(output_dir + "ds_dt." + extension)
 divU_out       = File(output_dir + "div_u." + extension)
+strain_rate_out = File(output_dir + "strain_rate." + extension)
 
 # Output files for further postprocessing
 h5file_phi     = HDF5File("porosity.h5", "w")
@@ -204,12 +204,6 @@ if MPI.process_number() == 0:
 # Mesh
 # ======================================================================
 
-# Buid mesh using CSG via CGAL (FIXME: Not periodic)
-#r = Rectangle(0.0, 0.0, height*aspect, height*aspect)
-#c = Circle (0.5*height*aspect, 0.5* height*aspect, radius)
-#g2d = r - c
-#mesh = Mesh(g2d, 150)
-
 # Create mesh
 if read_mesh:
     info("**** Reading mesh file: %s", meshfile)
@@ -217,14 +211,6 @@ if read_mesh:
 else:
     info("**** Generating mesh . . . ")
     if cylinder_mesh:
-
-        #if not has_cgal():
-        #    info("DOLFIN must be compiled with CGAL to run the meshing.")
-        #    sys.exit()
-        #outside  = Rectangle(0, 0, aspect*height, height)
-        #inside   = Circle(0.5*aspect*height, 0.5*height, radius, int(0.5*el))
-        #geometry = outside - inside
-        #mesh     = Mesh(geometry, 100)
 
         # Create a mesh with gmsh
         # NOTE: running this in parallel throws an error about lifeline lost.
@@ -463,10 +449,11 @@ if cylinder_mesh:
 shear_visc = physics.eta(phi0, param)
 bulk_visc  = physics.zeta(phi0, shear_visc, param)
 perm       = physics.perm(phi0, param)
-core.write_vtk(Q, p, phi0, u, v0, shear_visc, bulk_visc, perm, \
+srate      = physics.strain_rate(u)
+core.write_vtk(Q, p, phi0, u, v0, shear_visc, bulk_visc, perm, srate, \
                    vel_pert_out, velocity_out, pressure_out, \
                    porosity_out, divU_out, shear_visc_out, \
-                   bulk_visc_out, perm_out)
+                   bulk_visc_out, perm_out, strain_rate_out)
 
 # Write data to h5 files for postprocessing
 # Porosity
@@ -605,10 +592,11 @@ while (t < tmax):
     # Write results to files with output frequency
     if tcount % out_freq == 0:
         # Write data to files for quick visualisation
-        core.write_vtk(Q, p, phi1, u, v0, shear_visc, bulk_visc, perm, \
+        srate = physics.strain_rate(u)
+        core.write_vtk(Q, p, phi1, u, v0, shear_visc, bulk_visc, perm, srate, \
                            vel_pert_out, velocity_out, pressure_out, \
                            porosity_out, divU_out, shear_visc_out, \
-                           bulk_visc_out, perm_out)
+                           bulk_visc_out, perm_out, strain_rate_out)
 
         # Write data to h5 files for postprocessing
         # Porosity
