@@ -69,7 +69,7 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
 
     #U = TrialFunction(W)
-    U  = Function(W)
+    #U  = Function(W)
     if cylinder_mesh:
         (v, q, lam) = TestFunctions(W)
         u, p, omega = split(U)
