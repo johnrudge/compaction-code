@@ -32,7 +32,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 17 Dec 2013 by Laura Alisic
+# Last modified: 14 Jan 2014 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -68,7 +68,8 @@ def porosity_forms(V, phi0, u, dt):
 def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
 
-    U = TrialFunction(W)
+    #U = TrialFunction(W)
+    U  = Function(W)
     if cylinder_mesh:
         (v, q, lam) = TestFunctions(W)
         u, p, omega = split(U)
@@ -76,7 +77,8 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
         (v, q) = TestFunctions(W)
         u, p   = split(U)
 
-    shear_visc = physics.eta(phi, param)
+    srate      = physics.strain_rate(u)
+    shear_visc = physics.eta(phi, srate, param)
     bulk_visc  = physics.zeta(phi, shear_visc, param)
     perm       = physics.perm(phi, param)
     F          = 2.0*shear_visc*inner(sym(grad(u)), sym(grad(v)))*dx \
@@ -114,13 +116,17 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
         # Lagrange multiplier term for zero torque on cylinder
         F += lam*dot(vcyl, tu)*ds_cylinder
 
-    return lhs(F), rhs(F)
+    #return lhs(F), rhs(F)
+    return F
 
 # Write output to process 0 only
 parameters["std_out_all_processes"] = False
 
 # Needed for interpolating fields without throwing an error
 parameters['allow_extrapolation'] = True
+
+# Log level
+set_log_level(DEBUG)
 
 # ======================================================================
 # Run parameters
@@ -152,6 +158,7 @@ m     = param['m']
 n     = param['n']
 rzeta = param['rzeta']
 alpha = param['alpha']
+stress_exp = param['stress_exp']
 
 # Initial porosity parameters
 initial_porosity_field = param['initial_porosity_field']
@@ -237,7 +244,7 @@ if MPI.process_number() == 0:
     logfile.write("\n\nMesh: hmin = %g, hmax = %g\n" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
-print "Shifting mesh"
+info("**** Shifting mesh")
 for x in mesh.coordinates():
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
@@ -260,8 +267,6 @@ for x in mesh.coordinates():
             x[1] = int(x[1] * precision + 0.5) / precision
         else:
             x[1] = int(x[1] * precision - 0.5) / precision
-
-print "End mesh shift"
 
 # Subdomain for periodic boundary condition (left and right boundaries)
 class PeriodicBoundary(SubDomain):
@@ -289,6 +294,7 @@ pbc = PeriodicBoundary(1.0e-6)
 # ======================================================================
 
 # Define function spaces
+info("**** Defining function spaces")
 # Velocity
 V = VectorFunctionSpace(mesh, "Lagrange", degree, constrained_domain=pbc)
 
@@ -302,6 +308,8 @@ X = FunctionSpace(mesh, "Lagrange", degree-1, constrained_domain=pbc)
 if cylinder_mesh:
     # Lagrange multiplier for torque
     L = FunctionSpace(mesh, "Real", 0)
+    # FIXME: Why does creating the mixed function space take so long in serial?
+    info("**** Creating mixed function space")
     W = MixedFunctionSpace([V, Q, L])
 else:
     W = MixedFunctionSpace([V, Q])
@@ -309,6 +317,7 @@ else:
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
 # Velocity
+info("**** Defining h5 output function spaces")
 Y = VectorFunctionSpace(mesh, "Lagrange", degree)
 
 # Pressure and porosity
@@ -386,9 +395,9 @@ info ("**** Defining solution functions . . .")
 # Stokes-like solution (u, p)
 U = Function(W)
 if cylinder_mesh:
-    u, p, omega = U.split()
+    u, p, omega = split(U)
 else:
-    u, p = U.split()
+    u, p = split(U)
 
 # Porosity at time t_n
 phi0 = Function(X)
@@ -404,8 +413,11 @@ phi1 = Function(X)
 dt = Expression("dt", dt=0.0)
 
 # Get forms
+info("Getting porosity form")
 a_phi, L_phi = porosity_forms(X, phi0, u, dt)
-a_stokes, L_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
+info("Getting Stokes form")
+#a_stokes, L_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
+F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 
 # ======================================================================
 #  Initial porosity
@@ -434,10 +446,14 @@ v_background = Expression(("x[1]", "0.0"))
 v0 = Function(V)
 v0.interpolate(v_background)
 
-#  Initial velocity field
-print "Solving initial Stokes field"
-solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
-print "Finished solving intial Stokes field"
+# Initial velocity field
+# Solve nonlinear Stokes-type system
+info("Solving initial Stokes field")
+# FIXME: Solve fails with the error 'All terms in form must have same rank.'
+#solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
+solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
+                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
+info("Finished solving initial Stokes field")
 
 # Calculate the torque and deviation from rigid body rotation - both
 # should be zero
@@ -446,10 +462,10 @@ if cylinder_mesh:
                                            mesh, ds_cylinder, logfile)
 
 # Write data to files for quick visualisation
-shear_visc = physics.eta(phi0, param)
+srate      = physics.strain_rate(u)
+shear_visc = physics.eta(phi0, srate, param)
 bulk_visc  = physics.zeta(phi0, shear_visc, param)
 perm       = physics.perm(phi0, param)
-srate      = physics.strain_rate(u)
 core.write_vtk(Q, p, phi0, u, v0, shear_visc, bulk_visc, perm, srate, \
                    vel_pert_out, velocity_out, pressure_out, \
                    porosity_out, divU_out, shear_visc_out, \
@@ -513,7 +529,7 @@ b_phi, b_stokes = Vector(), Vector()
 # Sparsity pattern reset
 reset_sparsity_flag = True
 
-# Create a dierct linear solver for porosity
+# Create a direct linear solver for porosity
 solver_phi = LUSolver(A_phi)
 
 # FIXME: Check matrices for symmetry
@@ -555,8 +571,11 @@ while (t < tmax):
     # Update porosity
     phi0.assign(phi1)
 
+    # FIXME: The Stokes solve will currently break (need nonlinear solver)
+
     # Assemble Stokes-type system
     ffc_parameters = dict(quadrature_degree=3, optimize=True)
+    # TODO: Start non-Newtonian loop here, need re-assembling for each iteration?
     assemble(a_stokes, tensor=A_stokes, reset_sparsity=reset_sparsity_flag, \
                   form_compiler_parameters=ffc_parameters)
     assemble(L_stokes, tensor=b_stokes, reset_sparsity=reset_sparsity_flag, \
@@ -565,7 +584,7 @@ while (t < tmax):
         bc.apply(A_stokes, b_stokes)
 
     # Solve linear Stokes-type system
-    print "Solving Stokes problem"
+    info("Solving Stokes problem")
     solver_U.solve(U.vector(), b_stokes)
     info("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
     if MPI.process_number() == 0:
@@ -592,7 +611,7 @@ while (t < tmax):
     # Write results to files with output frequency
     if tcount % out_freq == 0:
         # Write data to files for quick visualisation
-        srate = physics.strain_rate(u)
+        #srate = physics.strain_rate(u)
         core.write_vtk(Q, p, phi1, u, v0, shear_visc, bulk_visc, perm, srate, \
                            vel_pert_out, velocity_out, pressure_out, \
                            porosity_out, divU_out, shear_visc_out, \

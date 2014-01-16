@@ -11,7 +11,7 @@
 # Garth Wells, University of Cambridge
 # John Rudge, University of Cambridge
 #
-# Last modified: 04 Jun 2013 by Laura Alisic
+# Last modified: 14 Jan 2014 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -19,14 +19,15 @@ import numpy, math, sys
 
 # ======================================================================
 
-def eta(phi, param):
+def eta(phi, srate, param):
     """Porosity dependent viscosity:
        eta = exp(-alpha * (phi - phiB))"""
 
     alpha = param['alpha']
     phiB  = param['phiB']
+    n     = param['stress_exp']
 
-    visc = exp(-alpha * (phi - phiB))
+    visc = exp(-alpha * (phi - phiB)) * srate**((1.0-n)/n)
 
     return visc
 
@@ -89,7 +90,8 @@ def strain_rate(u):
 def stress(phi, p, u, param):
     """Total stress tensor"""
 
-    shear_visc   = eta(phi, param)
+    srate        = strain_rate(u)
+    shear_visc   = eta(phi, srate, param)
     bulk_visc    = zeta(phi, shear_visc, param)
     rzeta        = param['rzeta']
 
