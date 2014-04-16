@@ -295,6 +295,99 @@ def cylinder_integrals(field, name, param, timestep):
 
 # ======================================================================
 
+def cylinder_integrals_slice(field, name, param, timestep):
+    """Computation of scaled integrals around a sphere, on a 2-D slice"""
+
+    info("**** Computing %s integrals ..." % (name))
+
+    # Output files
+    radius_integral_file = "./output/radius_integral_%s_%s.txt" % (name, timestep)
+    rfile = open(radius_integral_file,"w")
+    sin_integral_file = "./output/sin_integral_%s_%s.txt" % (name, timestep)
+    sfile = open(sin_integral_file,"w")
+    cos_integral_file = "./output/cos_integral_%s_%s.txt" % (name, timestep)
+    cfile = open(cos_integral_file,"w")
+
+    # Get parameters
+    radius = param['radius']
+
+    # Integration parameters
+    ntheta    = 100        # Number of angles to sample
+    nradius   = 100        # Number of radial points to sample
+    maxradius = 2.0*radius # Max radius to use in integration
+    x_slice   = 0.5        # Location of the 2-D slice, centre of the inclusion
+
+    dtheta    = 2.0*pi / float(ntheta)
+    dradius   = (maxradius - radius) / float(nradius)
+
+    # Integral over radius, for different angle theta
+    # Loop over theta
+    for i in range(ntheta):
+        theta = float(i) * dtheta
+
+        integral = 0
+        # Get points for radius range
+        # Note: range has nradius+1 here in order to use last interval
+        for j in range(nradius + 1):
+            r  = radius + (float(j) * dradius)
+
+            x0 = r*sin(theta)
+            x1 = r*cos(theta)
+
+            field_local = field(x_slice, x0, x1)
+
+            # Integrate field using trapezoidal rule
+            if j == 0 or j == (nradius):
+                integral += dradius * 0.5 * field_local
+            else:
+                integral += dradius * field_local
+
+        # Scale integral by radius
+        scaled_integral = integral / (maxradius - radius)
+
+        # Write integrated value to file
+        rfile.write("%g %g\n" % (theta, scaled_integral) )
+
+    rfile.close()
+
+    # Quadrupole integral (sin 2theta and cos 2theta), for different radii
+    # Loop over radius
+    for j in range(nradius + 1):
+        r  = radius + (float(j) * dradius)
+
+        sin_integral = 0
+        cos_integral = 0
+        # Get points for angle range
+        # Note: range has no ntheta+1 here because of periodicity
+        for i in range(ntheta):
+            theta = float(i) * dtheta
+
+            x0 = r*sin(theta)
+            x1 = r*cos(theta)
+
+            field_local = field(x_slice, x0, x1)
+
+            # Integrate field*r using trapezoidal rule
+            if j == 0 or j == (ntheta - 1):
+                sin_integral += dtheta * 0.5 * field_local * sin(2.0*theta)
+                cos_integral += dtheta * 0.5 * field_local * cos(2.0*theta)
+            else:
+                sin_integral += dtheta * field_local * sin(2.0*theta)
+                cos_integral += dtheta * field_local * cos(2.0*theta)
+
+        # Scale integral by pi
+        scaled_sin_integral = sin_integral / pi
+        scaled_cos_integral = cos_integral / pi
+
+        # Write integrated value to file
+        sfile.write("%g %g\n" % (r, scaled_sin_integral) )
+        cfile.write("%g %g\n" % (r, scaled_cos_integral) )
+
+    sfile.close()
+    cfile.close()
+
+# ======================================================================
+
 def plane_wave_analysis(Q, u, t, param, logfile):
     """Comparison of analytical and numerical growth rate of planar shear bands"""
 
