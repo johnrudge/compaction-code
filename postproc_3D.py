@@ -4,8 +4,8 @@
 # Script postproc_3D.py
 #
 # Does postprocessing for advection and compaction of a porous medium
-# in 3-D. Stripped down version; currently only computing compation rate
-# integrals at step 0.
+# in 3-D. Stripped down version; currently computing integrals of 
+# compaction rate, compactoin pressure and pressure integrals at step 0.
 #
 # No plotting is being done in this script.
 #
@@ -65,9 +65,16 @@ radius   = param['radius']
 out_freq = param['out_freq']
 cfl      = param['cfl']
 
-# Input files
-#h5file_phi    = HDF5File("porosity.h5", "r")
-h5file_vel    = HDF5File("velocity.h5", "r")
+# Input files from analytical code by John
+#h5file_phi        = HDF5File("./output/porosity.h5", "r")
+h5file_vel        = HDF5File("./output/velocity.h5", "r")
+h5file_pres       = HDF5File("./output/pressure.h5", "r")
+h5file_comp_pres  = HDF5File("./output/compaction_pressure.h5", "r")
+
+# Input files from numerical code by Sander
+#h5file_vel        = HDF5File("velocity.h5", "r")
+#h5file_pres       = HDF5File("pf_pressure.h5", "r")
+#h5file_comp_pres  = HDF5File("pc_pressure.h5", "r")
 
 # Needed for interpolating fields without throwing an error
 parameters['allow_extrapolation'] = True
@@ -78,15 +85,18 @@ parameters['allow_extrapolation'] = True
 
 # Read mesh from porosity file (can do from any of the .h5 files)
 mesh = Mesh()
-h5file_vel.read(mesh, "mesh_file")
+h5file_pres.read(mesh, "mesh_file")
 
 # Define function spaces
 
 # Velocity
 V = VectorFunctionSpace(mesh, "Lagrange", degree)
 
+# Velocity for analytical solution if computed at order 1
+#V = VectorFunctionSpace(mesh, "Lagrange", degree-1)
+
 # Pressure, porosity
-#Q = FunctionSpace(mesh, "Lagrange", degree-1)
+Q = FunctionSpace(mesh, "Lagrange", degree-1)
 
 # Define functions
 # Velocity
@@ -94,6 +104,10 @@ vel = Function(V)
 
 # Porosity
 #phi = Function(Q)
+
+# Pressures
+pres      = Function(Q)
+comp_pres = Function(Q)
 
 # ======================================================================
 # Post-processing in time loop 
@@ -109,18 +123,27 @@ time_step = []
 while nr_steps == 0:
     i = nr_steps*out_freq
 
-    try:
+    #try:
         # Read datasets for step i
-        #h5file_phi.read(phi, "porosity_%d" % i)
-        #h5file_phi.read(phi, "porosity")
         #h5file_vel.read(vel, "velocity_%d" % i)
-        h5file_vel.read(vel, "velocity")
-    except:
-        print 'Last output step reached.'
-        break
+        #h5file_phi.read(phi, "porosity_%d" % i)
+    #except:
+    #    print 'Last output step reached.'
+    #    break
+
+    # Files for analytical solution
+    h5file_vel.read(vel, "velocity")
+    h5file_pres.read(pres, "pressure")
+    h5file_comp_pres.read(comp_pres, "compaction_pressure")
+
+    # Files for numerical solution
+    #h5file_vel.read(vel, "velocity")
+    #h5file_pres.read(pres, "pf_pressure")
+    #h5file_comp_pres.read(comp_pres, "pc_pressure")
 
     # Determine time step length using velocity field
-    dt = determine_timestep(vel)
+    #dt = determine_timestep(vel)
+    dt = 0.001
     time_step.append(dt)         
     if nr_steps == 0: 
         strain = [0]
@@ -132,8 +155,10 @@ while nr_steps == 0:
 
     #if cylinder_mesh:
     # Computation of integrals around cylinder
-    #analysis.cylinder_integrals_slice(phi, 'porosity', param, i)
     analysis.cylinder_integrals_slice(project(div(vel)), 'compaction_rate', param, i)
+    #analysis.cylinder_integrals_slice(phi, 'porosity', param, i)
+    analysis.cylinder_integrals_slice(pres, 'pressure', param, i)
+    analysis.cylinder_integrals_slice(comp_pres, 'compaction_pressure', param, i)
 
     nr_steps += 1
 

@@ -315,7 +315,8 @@ def cylinder_integrals_slice(field, name, param, timestep):
     ntheta    = 100        # Number of angles to sample
     nradius   = 100        # Number of radial points to sample
     maxradius = 2.0*radius # Max radius to use in integration
-    x_slice   = 0.5        # Location of the 2-D slice, centre of the inclusion
+    x_centre  = 0.5        # X-coordinate of inclusion centre
+    z_centre  = 0.5        # Z-coordinate of inclusion centre
 
     dtheta    = 2.0*pi / float(ntheta)
     dradius   = (maxradius - radius) / float(nradius)
@@ -332,9 +333,9 @@ def cylinder_integrals_slice(field, name, param, timestep):
             r  = radius + (float(j) * dradius)
 
             x0 = r*sin(theta)
-            x1 = r*cos(theta)
+            x1 = z_centre + r*cos(theta)
 
-            field_local = field(x_slice, x0, x1)
+            field_local = field(x_centre, x0, x1)
 
             # Integrate field using trapezoidal rule
             if j == 0 or j == (nradius):
@@ -363,9 +364,9 @@ def cylinder_integrals_slice(field, name, param, timestep):
             theta = float(i) * dtheta
 
             x0 = r*sin(theta)
-            x1 = r*cos(theta)
+            x1 = z_centre + r*cos(theta)
 
-            field_local = field(x_slice, x0, x1)
+            field_local = field(x_centre, x0, x1)
 
             # Integrate field*r using trapezoidal rule
             if j == 0 or j == (ntheta - 1):
