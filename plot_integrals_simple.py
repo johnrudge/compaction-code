@@ -153,7 +153,7 @@ plt.xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi],\
 plt.xlabel('Angle')
 
 # Y axis
-plt.ylim(pf_min*0.90, pf_max*1.03)
+plt.ylim(pf_min*1.20, pf_max*1.20)
 plt.ylabel('Pressure')
 
 # Legend and title
@@ -182,8 +182,8 @@ plt.xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi],\
 plt.xlabel('Angle')
 
 # Y axis
-plt.ylim(pc_min*0.90, pc_max*1.03)
-plt.ylabel('Pressure')
+plt.ylim(pc_min*1.20, pc_max*1.20)
+plt.ylabel('Compaction pressure')
 
 # Legend and title
 plt.title(title_string)
@@ -210,7 +210,7 @@ plt.xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi],\
 plt.xlabel('Angle')
 
 # Y axis
-plt.ylim(comp_min*1.2, comp_max*1.05)
+plt.ylim(comp_min*1.2, comp_max*1.20)
 plt.ylabel('Compaction rate')
 
 # Legend and title
