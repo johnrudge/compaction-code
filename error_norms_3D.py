@@ -93,12 +93,16 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
 # Make sure that these lists are the same length: the first analytical
 # model is compared with the first numerical, and so on. The pairs have
 # to be defined on the same mesh.
-an_model_list  = ['analytic_N20', 'analytic_N20_r0p1', 'analytic_N20_r0p05']
-num_model_list = ['num_N20', 'num_N20_r0p1', 'num_N20_r0p05']
+#an_model_list  = ['analytic_N20', 'analytic_N20_r0p1', 'analytic_N20_r0p05']
+#num_model_list = ['num_N20', 'num_N20_r0p1', 'num_N20_r0p05']
+an_model_list  = ['analytic_N30', 'analytic_N30_r0p1', 'analytic_N30_r0p05']
+num_model_list = ['num_N30', 'num_N30_r0p1', 'num_N30_r0p05']
 
 # Figure names
-lin_fig_name = 'error_norms_linear_N20.pdf'
-log_fig_name = 'error_norms_loglog_N20.pdf'
+#lin_fig_name = 'error_norms_linear_N20.pdf'
+#log_fig_name = 'error_norms_loglog_N20.pdf'
+lin_fig_name = 'error_norms_linear_N30.pdf'
+log_fig_name = 'error_norms_loglog_N30.pdf'
 
 # List with inclusion radii corresponding to the above model pairs;  also 
 # needs to be the same length as the model list vectors.
@@ -191,6 +195,12 @@ for i, model in enumerate(an_model_list):
 #error_u_vals    = [ 0.0180874, 0.00230316, 0.000286238 ]
 #error_comp_vals = [ 0.194275, 0.0441826, 0.0280429 ]
 
+# XXX For debugging plotting: Models N30, N30_r0p1, N30_rp05
+#error_pf_vals   = [ 0.858752, 0.51695, 0.41648 ] 
+#error_pc_vals   = [ 0.189391, 0.0423787, 0.0295484 ]
+#error_u_vals    = [ 0.0180833, 0.0023012, 0.000285142 ]
+#error_comp_vals = [ 0.1929, 0.0434048, 0.0181757 ]
+
 # ======================================================================
 # Plot results in linear space
 # ======================================================================
@@ -217,7 +227,7 @@ plt.ylim(lin_min*0.90, lin_max*1.10)
 plt.ylabel(r'$L_2$ error')
 
 # Title
-plt.title(r'$L_2$ errors for N20 models')
+plt.title(r'$L_2$ errors for N30 models')
 
 # Legend
 legend_list = ['Pressure', 'Compaction pressure', 'Velocity', 'Compaction rate']
@@ -257,7 +267,7 @@ plt.ylim(log_min*0.5, log_max*2.0)
 plt.ylabel(r'$L_2$ error')
 
 # Title
-plt.title(r'$L_2$ errors for N20 models')
+plt.title(r'$L_2$ errors for N30 models')
 
 # Legend
 legend_list = ['Pressure', 'Compaction pressure', 'Velocity', 'Compaction rate']
