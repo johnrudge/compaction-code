@@ -22,6 +22,11 @@
 
 from dolfin import *
 import numpy, sys, math
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+
+plt.ioff()
 
 # Set quadrature degree
 ffc_parameters = dict(quadrature_degree=3, optimize=True)
@@ -90,6 +95,10 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
 # to be defined on the same mesh.
 an_model_list  = ['analytic_N20', 'analytic_N20_r0p1', 'analytic_N20_r0p05']
 num_model_list = ['num_N20', 'num_N20_r0p1', 'num_N20_r0p05']
+
+# Figure names
+lin_fig_name = 'error_norms_linear_N20.pdf'
+log_fig_name = 'error_norms_loglog_N20.pdf'
 
 # List with inclusion radii corresponding to the above model pairs;  also 
 # needs to be the same length as the model list vectors.
@@ -176,12 +185,17 @@ for i, model in enumerate(an_model_list):
     error_comp_vals.append(error_comp)
 
 
+# XXX For debugging plotting: Models N20, N20_r0p1, N20_rp05
+#error_pf_vals   = [ 0.858583, 0.51708, 0.415783 ]
+#error_pc_vals   = [ 0.188552, 0.0430007, 0.050721 ]
+#error_u_vals    = [ 0.0180874, 0.00230316, 0.000286238 ]
+#error_comp_vals = [ 0.194275, 0.0441826, 0.0280429 ]
+
 # ======================================================================
 # Plot results in linear space
 # ======================================================================
 
 # Start figure
-lin_fig_name = 'error_norms_linear.pdf'
 lin_id       = 1
 plt.figure(lin_id, figsize = (5,3))
 lin_ax       = plt.subplot(111)
@@ -220,7 +234,6 @@ plt.savefig(lin_fig_name, bbox_inches='tight')
 # ======================================================================
 
 # Start figure
-log_fig_name = 'error_norms_loglog.pdf'
 log_id       = 2
 plt.figure(log_id, figsize = (5,3))
 log_ax       = plt.subplot(111)
@@ -232,13 +245,15 @@ plt.loglog(radius, error_u_vals, marker = '+', color = 'green')
 plt.loglog(radius, error_comp_vals, marker = 's', color = 'red')
 
 # X axis
-plt.xlim([8e-3, 3e-1])
+plt.xlim([3e-2, 3e-1])
+plt.xticks([0.05, 0.10, 0.20], \
+           ['0.05', '0.10', '0.20'])
 plt.xlabel(r'Inclusion radius')
 
 # Y axis
 log_min = min(min([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
 log_max = max(max([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
-plt.ylim(log_min*0.90, log_max*1.10)
+plt.ylim(log_min*0.5, log_max*2.0)
 plt.ylabel(r'$L_2$ error')
 
 # Title
