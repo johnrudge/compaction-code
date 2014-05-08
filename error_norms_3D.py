@@ -17,7 +17,7 @@
 # Author:
 # Laura Alisic, University of Cambridge
 #
-# Last modified: 17 Apr 2014 by Laura Alisic
+# Last modified: 08 May 2014 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -36,7 +36,30 @@ ffc_parameters = dict(quadrature_degree=3, optimize=True)
 # Functions
 # ======================================================================
 
-def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
+def compute_u_torsion(V):
+    '''Compute background velocity according to torsion'''
+
+    class USolution(Expression):
+
+        def eval(self, value, x):
+
+            r = math.sqrt(x[0]*x[0] + x[1]*x[1])
+            beta = math.atan2(x[1],x[0])
+
+            value[0] = -r*(x[2]-0.5)*math.sin(beta)
+            value[1] = r*(x[2]-0.5)*math.cos(beta)
+            value[2] = 0.0
+
+        def value_shape(self):
+            return (3,)
+
+    u_background = USolution()
+    u0 = Function(V)
+    u0.interpolate(u_background)
+
+    return u0
+
+def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u0, u_an, u_num):
     '''Compute error norms between numerical and analytical solutions'''
 
     # Compute error norms
@@ -74,6 +97,19 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
     info("---- Velocity L2 norms: analytical %g, numerical %g, error %g" \
          % (an_norm_u, num_norm_u, error_u))
 
+    # Velocity perturbation error: substract background torsioni
+    du_an = u_an - u0
+    du_an_proj = project(du_an)
+    an_norm_du  = norm(du_an_proj)
+    
+    du_num = u_num - u0
+    du_num_proj = project(du_num)
+    num_norm_du = norm(du_num_proj)
+
+    error_du    = (errornorm(du_an_proj, du_num_proj)) / an_norm_du
+    info("---- Velocity perturbation L2 norms: analytical %g, numerical %g, error %g" \
+         % (an_norm_du, num_norm_du, error_du))
+
     # Compaction rate error
     comp_an       = project(div(u_an))
     comp_num      = project(div(u_num))
@@ -83,7 +119,7 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
     info("---- Compaction rate L2 norms: analytical %g, numerical %g, error %g" \
          % (an_norm_comp, num_norm_comp, error_comp))
 
-    return error_pf, error_pc, error_u, error_comp
+    return error_pf, error_pc, error_u, error_du, error_comp
 
 
 # ======================================================================
@@ -93,16 +129,12 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u_an, u_num):
 # Make sure that these lists are the same length: the first analytical
 # model is compared with the first numerical, and so on. The pairs have
 # to be defined on the same mesh.
-#an_model_list  = ['analytic_N20', 'analytic_N20_r0p1', 'analytic_N20_r0p05']
-#num_model_list = ['num_N20', 'num_N20_r0p1', 'num_N20_r0p05']
 an_model_list  = ['analytic_N30', 'analytic_N30_r0p1', 'analytic_N30_r0p05']
 num_model_list = ['num_N30', 'num_N30_r0p1', 'num_N30_r0p05']
 
 # Figure names
-#lin_fig_name = 'error_norms_linear_N20.pdf'
-#log_fig_name = 'error_norms_loglog_N20.pdf'
-lin_fig_name = 'error_norms_linear_N30.pdf'
-log_fig_name = 'error_norms_loglog_N30.pdf'
+lin_fig_name = 'error_norms_linear_N30_vel_perturb.pdf'
+log_fig_name = 'error_norms_loglog_N30_vel_perturb.pdf'
 
 # List with inclusion radii corresponding to the above model pairs;  also 
 # needs to be the same length as the model list vectors.
@@ -119,17 +151,16 @@ parameters['allow_extrapolation'] = True
 # Loop over models
 # ======================================================================
 
-error_pf_vals   = [] # Pressure error
-error_pc_vals   = [] # Compaction pressure error
-error_u_vals    = [] # Velocity error
-error_comp_vals = [] # Compaction rate error
+error_pf_vals   = []  # Pressure error
+error_pc_vals   = []  # Compaction pressure error
+error_u_vals    = []  # Velocity error
+error_du_vals   = [] # Velocity perturbation error
+error_comp_vals = []  # Compaction rate error
 
 for i, model in enumerate(an_model_list):
-
     print 'Models:', an_model_list[i], 'and', num_model_list[i]
 
     # Define files
-    #info("**** Defining input files for models %s and %s ...") % (str(an_model_list[i]), str(num_model_list[i]))
     info("**** Defining input files...")
 
     # Input files from analytical code by John
@@ -179,13 +210,17 @@ for i, model in enumerate(an_model_list):
     h5file_pf_num.read(pf_num, "pf_pressure")
     h5file_pc_num.read(pc_num, "pc_pressure")
 
+    # Background velocity, according to the torsion Dirichlet BC on the cylinder
+    u0 = compute_u_torsion(V)
+ 
     # Compute errors
-    [error_pf, error_pc, error_u, error_comp] =  compute_errors(radius[i], pf_an, pf_num, pc_an, pc_num, u_an, u_num)
+    [error_pf, error_pc, error_u, error_du, error_comp] = compute_errors(radius[i], pf_an, pf_num, pc_an, pc_num, u0, u_an, u_num)
 
     # Store error data in array
     error_pf_vals.append(error_pf)
     error_pc_vals.append(error_pc)
     error_u_vals.append(error_u)
+    error_du_vals.append(error_du)
     error_comp_vals.append(error_comp)
 
 
@@ -199,6 +234,7 @@ for i, model in enumerate(an_model_list):
 #error_pf_vals   = [ 0.858752, 0.51695, 0.41648 ] 
 #error_pc_vals   = [ 0.189391, 0.0423787, 0.0295484 ]
 #error_u_vals    = [ 0.0180833, 0.0023012, 0.000285142 ]
+#error_du_vals   = [ 0.517893, 0.354076, 0.240777]
 #error_comp_vals = [ 0.1929, 0.0434048, 0.0181757 ]
 
 # ======================================================================
@@ -213,24 +249,21 @@ lin_ax       = plt.subplot(111)
 # Plot data points
 plt.plot(radius, error_pf_vals, marker = 'o', color = 'black')
 plt.plot(radius, error_pc_vals, marker = 'x', color = 'blue')
-plt.plot(radius, error_u_vals, marker = '+', color = 'green')
-plt.plot(radius, error_comp_vals, marker = 's', color = 'red')
+plt.plot(radius, error_du_vals, marker = '+', color = 'green')
+#plt.plot(radius, error_comp_vals, marker = 's', color = 'red')
 
 # X axis
 plt.xlim([0, 0.22])
 plt.xlabel(r'Inclusion radius')
 
 # Y axis
-lin_min = min(min([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
-lin_max = max(max([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
+lin_min = min(min([error_pf_vals, error_pc_vals, error_du_vals, error_comp_vals]))
+lin_max = max(max([error_pf_vals, error_pc_vals, error_du_vals, error_comp_vals]))
 plt.ylim(lin_min*0.90, lin_max*1.10)
 plt.ylabel(r'$L_2$ error')
 
-# Title
-plt.title(r'$L_2$ errors for N30 models')
-
 # Legend
-legend_list = ['Pressure', 'Compaction pressure', 'Velocity', 'Compaction rate']
+legend_list = [r'$p_f$', r'$p_c$', r'$\Delta \mathbf{u}_s$']
 lin_box     = lin_ax.get_position()
 lin_ax.set_position([lin_box.x0, lin_box.y0, lin_box.width*0.8, lin_box.height])
 lin_ax.legend(legend_list, loc = 'center left', bbox_to_anchor = (1, 0.5))
@@ -251,8 +284,8 @@ log_ax       = plt.subplot(111)
 # Plot data points
 plt.loglog(radius, error_pf_vals, marker = 'o', color = 'black')
 plt.loglog(radius, error_pc_vals, marker = 'x', color = 'blue')
-plt.loglog(radius, error_u_vals, marker = '+', color = 'green')
-plt.loglog(radius, error_comp_vals, marker = 's', color = 'red')
+plt.loglog(radius, error_du_vals, marker = '+', color = 'green')
+#plt.loglog(radius, error_comp_vals, marker = 's', color = 'red')
 
 # X axis
 plt.xlim([3e-2, 3e-1])
@@ -261,16 +294,15 @@ plt.xticks([0.05, 0.10, 0.20], \
 plt.xlabel(r'Inclusion radius')
 
 # Y axis
-log_min = min(min([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
-log_max = max(max([error_pf_vals, error_pc_vals, error_u_vals, error_comp_vals]))
-plt.ylim(log_min*0.5, log_max*2.0)
+#log_min = min(min([error_pf_vals, error_pc_vals, error_du_vals, error_comp_vals]))
+#log_max = max(max([error_pf_vals, error_pc_vals, error_du_vals, error_comp_vals]))
+#plt.ylim(log_min*0.5, log_max*2.0)
+plt.ylim([1e-2, 1.5])
 plt.ylabel(r'$L_2$ error')
 
-# Title
-plt.title(r'$L_2$ errors for N30 models')
-
 # Legend
-legend_list = ['Pressure', 'Compaction pressure', 'Velocity', 'Compaction rate']
+#legend_list = [r'$p_f$', r'$p_c$', r'$\mathbf{u}_s$']
+legend_list = [r'$p_f$', r'$p_c$', r'$\Delta \mathbf{u}_s$']
 log_box     = log_ax.get_position()
 log_ax.set_position([log_box.x0, log_box.y0, log_box.width*0.8, log_box.height])
 log_ax.legend(legend_list, loc = 'center left', bbox_to_anchor = (1, 0.5))
