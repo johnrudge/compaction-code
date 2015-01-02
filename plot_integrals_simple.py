@@ -60,17 +60,25 @@ def read_data(data_file):
 # ======================================================================
 
 # Title string
-title = 'N10'
+title = 'N30_r0p05'
+title_string = '%s: inclusion radius 0.05' % (title)
+#title = 'r0p2'
+#title_string = 'Inclusion radius 0.2'
 
 # List of integrals to plot
-model_list = ['../num_N10', \
-              '../analytic_N10']
+model_list = ['../analytic_N30_r0p05', \
+              '../num_N30_r0p05']
+#model_list = ['../analytic_N30', \
+#              '../num_N10', \
+#              '../num_N20', \
+#              '../num_N30']
 
 # List of colors to use
 color_list = ['Black', 'Blue', 'Green', 'Red', 'Cyan', 'Magenta']
 
 # Text strings for legend
-legend_list = ['Numerical', 'Analytical']
+legend_list = ['Analytical', 'Numerical']
+#legend_list = ['Analytical', 'Numerical N10', 'Numerical N20', 'Numerical N30']
 
 # Figure output names
 pf_fig_name   = 'pressure_integrals_%s.pdf' % (title)
@@ -157,7 +165,6 @@ plt.ylim(pf_min*1.20, pf_max*1.20)
 plt.ylabel('Pressure')
 
 # Legend and title
-title_string = '%s: inclusion radius 0.2' % (title)
 plt.title(title_string)
 pf_box = pf_ax.get_position()
 pf_ax.set_position([pf_box.x0, pf_box.y0, pf_box.width*0.8, pf_box.height])

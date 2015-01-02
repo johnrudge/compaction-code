@@ -17,12 +17,14 @@
 # Author:
 # Laura Alisic, University of Cambridge
 #
-# Last modified: 08 May 2014 by Laura Alisic
+# Last modified: 02 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
 import numpy, sys, math
 import matplotlib as mpl
+mpl.use('pdf')
+
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
@@ -129,8 +131,8 @@ def compute_errors(radius, pf_an, pf_num, pc_an, pf_nu, u0, u_an, u_num):
 # Make sure that these lists are the same length: the first analytical
 # model is compared with the first numerical, and so on. The pairs have
 # to be defined on the same mesh.
-an_model_list  = ['analytic_N30', 'analytic_N30_r0p1', 'analytic_N30_r0p05']
-num_model_list = ['num_N30', 'num_N30_r0p1', 'num_N30_r0p05']
+an_model_list  = ['analytic_N30_r02', 'analytic_N30_r01', 'analytic_N30_r005']
+num_model_list = ['num_N30_r02', 'num_N30_r01', 'num_N30_r005']
 
 # Figure names
 lin_fig_name = 'error_norms_linear_N30_vel_perturb.pdf'
@@ -146,6 +148,8 @@ degree = 2
 # Needed for interpolating fields without throwing an error
 parameters['allow_extrapolation'] = True
 
+# MPI command needed for HDF5
+comm = mpi_comm_world()
 
 # ======================================================================
 # Loop over models
@@ -164,18 +168,18 @@ for i, model in enumerate(an_model_list):
     info("**** Defining input files...")
 
     # Input files from analytical code by John
-    h5file_u_an   = HDF5File(("../%s/output/velocity.h5" % (an_model_list[i])), "r")
-    h5file_pf_an  = HDF5File(("../%s/output/pressure.h5" % (an_model_list[i])), "r")
-    h5file_pc_an  = HDF5File(("../%s/output/compaction_pressure.h5" % (an_model_list[i])), "r")
+    h5file_u_an   = HDF5File(comm, ("../%s/output/velocity.h5" % (an_model_list[i])), "r")
+    h5file_pf_an  = HDF5File(comm, ("../%s/output/pressure.h5" % (an_model_list[i])), "r")
+    h5file_pc_an  = HDF5File(comm, ("../%s/output/compaction_pressure.h5" % (an_model_list[i])), "r")
 
     # Input files from numerical code by Sander
-    h5file_u_num  = HDF5File(("../%s/velocity.h5" % (num_model_list[i])), "r")
-    h5file_pf_num = HDF5File(("../%s/pf_pressure.h5" % (num_model_list[i])), "r")
-    h5file_pc_num = HDF5File(("../%s/pc_pressure.h5" % (num_model_list[i])), "r")
+    h5file_u_num  = HDF5File(comm, ("../%s/velocity.h5" % (num_model_list[i])), "r")
+    h5file_pf_num = HDF5File(comm, ("../%s/pf_pressure.h5" % (num_model_list[i])), "r")
+    h5file_pc_num = HDF5File(comm, ("../%s/pc_pressure.h5" % (num_model_list[i])), "r")
 
     # Read mesh from file
     mesh = Mesh()
-    h5file_pf_num.read(mesh, "mesh_file")
+    h5file_pf_num.read(mesh, "mesh_file", False)
 
     # For each pair of num/an models, define function spaces
     info("**** Defining function spaces...")
@@ -206,9 +210,9 @@ for i, model in enumerate(an_model_list):
     h5file_pc_an.read(pc_an, "compaction_pressure")
 
     # Files for numerical solution
-    h5file_u_num.read(u_num, "velocity")
-    h5file_pf_num.read(pf_num, "pf_pressure")
-    h5file_pc_num.read(pc_num, "pc_pressure")
+    h5file_u_num.read(u_num, "velocity_0")
+    h5file_pf_num.read(pf_num, "pf_pressure_0")
+    h5file_pc_num.read(pc_num, "pc_pressure_0")
 
     # Background velocity, according to the torsion Dirichlet BC on the cylinder
     u0 = compute_u_torsion(V)
