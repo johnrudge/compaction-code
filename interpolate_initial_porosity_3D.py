@@ -17,7 +17,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 13 Sept 2013 by Laura Alisic
+# Last modified: 23 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -99,7 +99,7 @@ phi_proj.interpolate(phi_input)
 
 # Output initial porosity to HDF5 for later read-in
 h5file_phi_out = HDF5File(comm, initial_porosity_out, "w")
-h5file_phi_out.write(phi_proj, "initial_porosity")
+h5file_phi_out.write(phi_proj, "porosity")
 h5file_phi_out.write(mesh, "mesh_file")
 File("initial_porosity_interpolated.pvd") << phi_proj
 
