@@ -8,7 +8,7 @@
 # John Rudge, University of Cambridge
 # Laura Alisic, University of Cambridge
 #
-# Last modified: 31 July 2013 by Sander Rhebergen
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -57,22 +57,18 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
     gmshcode = gmshtemplate.substitute(rel_radius=rel_radius, h=h, \
                                            aspect=aspect)
 
-    # FIXME: running this in parallel throws an error about lifeline lost.
-    MPI.barrier(comm)
-    if MPI.rank(comm) == 0:
-        # Write gmsh geo file
-        f = open(geofile, 'w')
-        f.write(gmshcode)
-        f.close()
+    # Write gmsh geo file
+    f = open(geofile, 'w')
+    f.write(gmshcode)
+    f.close()
 
-        # File conversion
-        os.system("gmsh " + geofile + " -2 -clmax " + str(max_el_size))
-        os.system("dolfin-convert "+ mshfile + " " + xmlfile)
+    # File conversion
+    os.system("gmsh " + geofile + " -2 -clmax " + str(max_el_size))
+    os.system("dolfin-convert "+ mshfile + " " + xmlfile)
 
-        # Clean-up
-        os.remove(geofile)
-        os.remove(mshfile)
-    MPI.barrier(comm)
+    # Clean-up
+    os.remove(geofile)
+    os.remove(mshfile)
 
 # ======================================================================
 
