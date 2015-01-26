@@ -7,8 +7,9 @@
 #
 # John Rudge, University of Cambridge
 # Laura Alisic, University of Cambridge
+# Sander Rhebergen, University of Oxford
 #
-# Last modified: 31 July 2013 by Sander Rhebergen
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -33,7 +34,7 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
     centrex   = h * aspect * 0.5;
     centrey   = h * 0.5;
     radius    = h * $rel_radius;
-    cl1       = 1.0;
+    cl1       = 1.0/5.0;
     Point(1)  = {0.0, 0.0, 0.0, cl1};
     Point(2)  = {h*aspect, 0.0, 0.0, cl1};
     Point(3)  = {h*aspect, h, 0.0, cl1};
@@ -47,6 +48,24 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
     Line(2)   = {2, 1};
     Line(3)   = {1, 4};
     Line(4)   = {4, 3};
+    Field[14] = Attractor;
+    Field[14].NodesList = {5};
+    Field[15] = Threshold;
+    Field[15].IField = 14;
+    Field[15].LcMin = cl1 / 40;
+    Field[15].LcMax = cl1;
+    Field[15].DistMin = 1.0*radius;
+    Field[15].DistMax = 10.0*radius;
+    Field[16] = Box;
+    Field[16].VIn = cl1 / 10;
+    Field[16].VOut = cl1;
+    Field[16].XMin = centrex-1.0*radius;
+    Field[16].XMax = centrex+1.0*radius;
+    Field[16].YMin = centrey-1.0*radius;
+    Field[16].YMax = centrey+1.0*radius;
+    Field[17] = Min;
+    Field[17].FieldsList = {15, 16};
+    Background Field = 17;
     Circle(5) = {9, 5, 6};
     Circle(6) = {6, 5, 8};
     Circle(7) = {8, 5, 7};
@@ -57,22 +76,18 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
     gmshcode = gmshtemplate.substitute(rel_radius=rel_radius, h=h, \
                                            aspect=aspect)
 
-    # FIXME: running this in parallel throws an error about lifeline lost.
-    MPI.barrier(comm)
-    if MPI.rank(comm) == 0:
-        # Write gmsh geo file
-        f = open(geofile, 'w')
-        f.write(gmshcode)
-        f.close()
+    # Write gmsh geo file
+    f = open(geofile, 'w')
+    f.write(gmshcode)
+    f.close()
 
-        # File conversion
-        os.system("gmsh " + geofile + " -2 -clmax " + str(max_el_size))
-        os.system("dolfin-convert "+ mshfile + " " + xmlfile)
+    # File conversion
+    os.system("gmsh " + geofile + " -2 -clmax " + str(max_el_size))
+    os.system("dolfin-convert "+ mshfile + " " + xmlfile)
 
-        # Clean-up
-        os.remove(geofile)
-        os.remove(mshfile)
-    MPI.barrier(comm)
+    # Clean-up
+    os.remove(geofile)
+    os.remove(mshfile)
 
 # ======================================================================
 

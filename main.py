@@ -32,7 +32,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 14 Jan 2014 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -68,8 +68,6 @@ def porosity_forms(V, phi0, u, dt):
 def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
 
-    #U = TrialFunction(W)
-    U  = Function(W)
     if cylinder_mesh:
         (v, q, lam) = TestFunctions(W)
         u, p, omega = split(U)
@@ -126,7 +124,7 @@ parameters["std_out_all_processes"] = False
 parameters['allow_extrapolation'] = True
 
 # Log level
-set_log_level(DEBUG)
+#set_log_level(DEBUG)
 
 # ======================================================================
 # Run parameters
@@ -191,18 +189,21 @@ num_ds_dt_out  = File(output_dir + "ds_dt." + extension)
 divU_out       = File(output_dir + "div_u." + extension)
 strain_rate_out = File(output_dir + "strain_rate." + extension)
 
+# MPI command needed for HDF5
+comm = mpi_comm_world()
+
 # Output files for further postprocessing
-h5file_phi     = HDF5File("porosity.h5", "w")
-h5file_vel     = HDF5File("velocity.h5", "w")
-h5file_pres    = HDF5File("pressure.h5", "w")
+h5file_phi     = HDF5File(comm, "porosity.h5", "w")
+h5file_vel     = HDF5File(comm, "velocity.h5", "w")
+h5file_pres    = HDF5File(comm, "pressure.h5", "w")
 
 # Initialise logfile
 logfile = open(logname, "w")
-if MPI.process_number() == 0:
+if MPI.rank(comm) == 0:
     logfile.write(str(datetime.datetime.now()))
 
 # Print params to logfile
-if MPI.process_number() == 0:
+if MPI.rank(comm) == 0:
     logfile.write("\n\nRun parameters:\n")
     for item in sorted(param.keys(), key=str.lower):
         logfile.write("%s = %s\n" % (item, param[item]))
@@ -221,26 +222,26 @@ else:
 
         # Create a mesh with gmsh
         # NOTE: running this in parallel throws an error about lifeline lost.
-        MPI.barrier()
+        MPI.barrier(comm)
         #mesh_gen_uniform.cylinder_mesh_gen(filename=meshfile, \
         mesh_gen.cylinder_mesh_gen(filename=meshfile, \
                                    aspect=aspect, \
                                    N=el, \
                                    h=height, \
                                    rel_radius=(radius/height))
-        MPI.barrier()
+        MPI.barrier(comm)
         mesh = Mesh(meshfile)
     else:
         mesh = RectangleMesh(0, 0, aspect*height, height, \
                                  int(aspect*el), int(el), meshtype)
 
 # Smallest element size. Used to determine time step
-h_min = MPI.min(mesh.hmin())
-h_max = MPI.max(mesh.hmax())
+h_min = MPI.min(comm, mesh.hmin())
+h_max = MPI.max(comm, mesh.hmax())
 
 # Minimum and maximum element size
 info("hmin = %g, hmax = %g" % (h_min, h_max))
-if MPI.process_number() == 0:
+if MPI.rank(comm) == 0:
     logfile.write("\n\nMesh: hmin = %g, hmax = %g\n" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
@@ -307,8 +308,8 @@ X = FunctionSpace(mesh, "Lagrange", degree-1, constrained_domain=pbc)
 # Create mixed function space
 if cylinder_mesh:
     # Lagrange multiplier for torque
-    L = FunctionSpace(mesh, "Real", 0)
-    # FIXME: Why does creating the mixed function space take so long in serial?
+    #L = FunctionSpace(mesh, "Real", 0)
+    L = FunctionSpace(mesh, "Real", 0, constrained_domain=pbc)
     info("**** Creating mixed function space")
     W = MixedFunctionSpace([V, Q, L])
 else:
@@ -316,8 +317,8 @@ else:
 
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
-# Velocity
 info("**** Defining h5 output function spaces")
+# Velocity
 Y = VectorFunctionSpace(mesh, "Lagrange", degree)
 
 # Pressure and porosity
@@ -364,7 +365,7 @@ topv  = Expression((" 0.5*h",  "0.0"), h = height)
 # vector for velocity on bottom boundary
 bottomv   = Expression(("-0.5*h", "0.0"), h = height)
 
-## TODO: Check if pinpoint is within domain for cylinder runs
+# Pinpoint for pressure
 pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
 pinpoint = CompiledSubDomain(pin_str)
 
@@ -418,6 +419,8 @@ a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 info("Getting Stokes form")
 #a_stokes, L_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
+#a_stokes = lhs(F_stokes)
+#L_stokes = rhs(F_stokes)
 
 # ======================================================================
 #  Initial porosity
@@ -459,7 +462,7 @@ info("Finished solving initial Stokes field")
 # should be zero
 if cylinder_mesh:
     physics.print_cylinder_diagnostics(phi0, p, u, omega, param, \
-                                           mesh, ds_cylinder, logfile)
+                                       mesh, ds_cylinder, logfile)
 
 # Write data to files for quick visualisation
 srate      = physics.strain_rate(u)
@@ -480,26 +483,26 @@ h5file_phi.write(mesh, "mesh_file")
 
 # Velocity
 vel = Function(Y)
-vel.interpolate(u)
+vel.interpolate(project(u))
 h5file_vel.write(vel, "velocity_%d" % 0)
 h5file_vel.write(mesh, "mesh_file")
 
 # Pressure
 pres = Function(Z)
-pres.interpolate(p)
+pres.interpolate(project(p))
 h5file_pres.write(pres, "pressure_%d" % 0)
 h5file_pres.write(mesh, "mesh_file")
 
-if MPI.process_number() == 0:
+if MPI.rank(comm) == 0:
     logfile.write("\nTime step 0: t = 0\n")
 
 # Compare results to shear band growth rates from plane wave
 # benchmark.
 t = 0.0
-MPI.barrier()
-if MPI.process_number() == 0 and initial_porosity_field == 'plane_wave':
+MPI.barrier(comm)
+if MPI.rank(comm) == 0 and initial_porosity_field == 'plane_wave':
     analysis.plane_wave_analysis(Q, u, t, param, logfile)
-MPI.barrier()
+MPI.barrier(comm)
 
 # Computation of analytical compaction rates around cylinder.
 #if initial_porosity_field == 'uniform' and cylinder_mesh:
@@ -546,7 +549,7 @@ while (t < tmax):
         dt.dt = tmax - t
 
     info("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("\nTime step %d: t = %g\n" % (tcount, t + dt.dt))
 
     # Solve for U_n+1 and phi_n+1
@@ -555,16 +558,18 @@ while (t < tmax):
 
     # Assemble system for porosity advection
     ffc_parameters = dict(quadrature_degree=3, optimize=True)
-    assemble(a_phi, tensor=A_phi, reset_sparsity=reset_sparsity_flag, \
+    #assemble(a_phi, tensor=A_phi, reset_sparsity=reset_sparsity_flag, \
+    assemble(a_phi, tensor=A_phi, \
                  form_compiler_parameters=ffc_parameters)
-    assemble(L_phi, tensor=b_phi, reset_sparsity=reset_sparsity_flag, \
+    #assemble(L_phi, tensor=b_phi, reset_sparsity=reset_sparsity_flag, \
+    assemble(L_phi, tensor=b_phi, \
                  form_compiler_parameters=ffc_parameters)
 
     # Solve linear porosity advection system
     solver_phi.solve(phi1.vector(), b_phi)
     info("Phi vector norms: %g, %g" \
              % (phi1.vector().norm("l2"), b_phi.norm("l2")))
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Phi vector norms: %g, %g\n" \
                           % (phi1.vector().norm("l2"), b_phi.norm("l2")))
 
@@ -574,22 +579,26 @@ while (t < tmax):
     # FIXME: The Stokes solve will currently break (need nonlinear solver)
 
     # Assemble Stokes-type system
-    ffc_parameters = dict(quadrature_degree=3, optimize=True)
+    #ffc_parameters = dict(quadrature_degree=3, optimize=True)
     # TODO: Start non-Newtonian loop here, need re-assembling for each iteration?
-    assemble(a_stokes, tensor=A_stokes, reset_sparsity=reset_sparsity_flag, \
-                  form_compiler_parameters=ffc_parameters)
-    assemble(L_stokes, tensor=b_stokes, reset_sparsity=reset_sparsity_flag, \
-                 form_compiler_parameters=ffc_parameters)
-    for bc in Vbcs:
-        bc.apply(A_stokes, b_stokes)
+    ##assemble(a_stokes, tensor=A_stokes, reset_sparsity=reset_sparsity_flag, \
+    #assemble(a_stokes, tensor=A_stokes, \
+    #              form_compiler_parameters=ffc_parameters)
+    ##assemble(L_stokes, tensor=b_stokes, reset_sparsity=reset_sparsity_flag, \
+    #assemble(L_stokes, tensor=b_stokes, \
+    #             form_compiler_parameters=ffc_parameters)
+    #for bc in Vbcs:
+    #    bc.apply(A_stokes, b_stokes)
 
     # Solve linear Stokes-type system
     info("Solving Stokes problem")
-    solver_U.solve(U.vector(), b_stokes)
-    info("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
-    if MPI.process_number() == 0:
-        logfile.write("U vector norms: %g, %g\n" \
-                          % (U.vector().norm("l2"), b_stokes.norm("l2")))
+    #solver_U.solve(U.vector(), b_stokes)
+    #info("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
+    #if MPI.rank(comm) == 0:
+    #    logfile.write("U vector norms: %g, %g\n" \
+    #                      % (U.vector().norm("l2"), b_stokes.norm("l2")))
+    solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
+                                  solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
 
     # Prevent sparsity being re-computed at next solve
     reset_sparsity_flag = False
@@ -603,15 +612,15 @@ while (t < tmax):
 
     # Compare results to shear band growth rates from plane wave
     # benchmark
-    MPI.barrier()
-    if MPI.process_number() == 0 and initial_porosity_field == 'plane_wave':
+    MPI.barrier(comm)
+    if MPI.rank(comm) == 0 and initial_porosity_field == 'plane_wave':
         analysis.plane_wave_analysis(Q, u, t, param, logfile)
-    MPI.barrier()
+    MPI.barrier(comm)
 
     # Write results to files with output frequency
     if tcount % out_freq == 0:
         # Write data to files for quick visualisation
-        #srate = physics.strain_rate(u)
+        srate = physics.strain_rate(u)
         core.write_vtk(Q, p, phi1, u, v0, shear_visc, bulk_visc, perm, srate, \
                            vel_pert_out, velocity_out, pressure_out, \
                            porosity_out, divU_out, shear_visc_out, \
@@ -622,10 +631,10 @@ while (t < tmax):
         phi.interpolate(phi1)
         h5file_phi.write(phi, "porosity_%d" % tcount)
         # Velocity
-        vel.interpolate(u)
+        vel.interpolate(project(u))
         h5file_vel.write(vel, "velocity_%d" % tcount)
         # Pressure
-        pres.interpolate(p)   
+        pres.interpolate(project(p))   
         h5file_pres.write(pres, "pressure_%d" % tcount)
 
     # Check that phi is within allowable bounds
@@ -644,6 +653,6 @@ while (t < tmax):
     t      += dt.dt
     tcount += 1
 
-if MPI.process_number() == 0:
+if MPI.rank(comm) == 0:
     logfile.write("\nEOF\n")
     logfile.close()

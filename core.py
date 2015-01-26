@@ -32,7 +32,8 @@ def u_max(U, cylinder_mesh):
     else:
         u, p    = U.split()
 
-    volume = v.cell().volume
+    #volume = v.cell().volume
+    volume = CellVolume(mesh)
     L      = v*sqrt(dot(u, u))/volume*dx
     b      = assemble(L)
 
@@ -121,8 +122,10 @@ def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, srate, \
     # Note: Renaming fields so that they are easier to distinguish in Paraview
 
     # Velocity field
-    u.rename("velocity", "")
-    velocity_out  << u
+    #u.rename("velocity", "")
+    vel_proj = project(u)
+    vel_proj.rename("velocity", "")
+    velocity_out  << vel_proj
 
     # Velocity perturbation    
     vel_pert      = u - v0
@@ -136,8 +139,10 @@ def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, srate, \
     divU_out      << divU_proj
 
     # Pressure field
-    p.rename("pressure", "")
-    pressure_out  << p
+    #p.rename("pressure", "")
+    p_proj = project(p)
+    p_proj.rename("pressure", "")
+    pressure_out  << p_proj
     
     # Porosity field
     phi.rename("porosity", "")

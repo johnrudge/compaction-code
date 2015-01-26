@@ -11,11 +11,13 @@
 # Garth Wells, University of Cambridge
 # John Rudge, University of Cambridge
 #
-# Last modified: 14 Jan 2014 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
 import numpy, math, sys
+
+comm = mpi_comm_world()
 
 # ======================================================================
 
@@ -96,8 +98,8 @@ def stress(phi, p, u, param):
     rzeta        = param['rzeta']
 
     return 2.0*shear_visc*sym(grad(u)) + (rzeta*bulk_visc - \
-           (2.0/3.0)*shear_visc)*div(u)*Identity(u.cell().d) \
-           - p*Identity(u.cell().d)
+           (2.0/3.0)*shear_visc)*div(u)*Identity(u.cell().topological_dimension()) \
+           - p*Identity(u.cell().topological_dimension())
 
 # ======================================================================
 
@@ -155,22 +157,27 @@ def get_rotation_rate(omega, mesh):
 def print_cylinder_diagnostics(phi, p, u, omega, param, mesh, ds_cylinder, logfile):
     """Print various diagnostics about the cylinder, like torque, rigid body rotationness, and rotation rate"""
 
+    # MPI
+    comm = mpi_comm_world()
+
     total_torque = assemble(torque(phi, p, u, param, mesh, ds_cylinder))
     info("**** Torque in numerical solution = %g" % total_torque)
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Torque in numerical solution = %g\n" % total_torque)
 
     total_rigid_rotation_error = calculate_rigid_rotation_error(u, omega, ds_cylinder)
     info("**** Rigid body rotation error in numerical solution = %g" % total_rigid_rotation_error)
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Rigid body rotation error in numerical solution = %g\n" % total_rigid_rotation_error)
 
-    rotation = get_rotation_rate(omega, mesh)
-    MPI.barrier()
-    if MPI.process_number() == 0:
-        info("**** Rotation rate of cylinder = %g" % rotation)
-        logfile.write("Rotation rate of cylinder = %g\n" % rotation)
-    MPI.barrier()
+    # FIXME: This gives an error about Function Spaces not being the same at the moment
+    # (probably need the same constrained pbc space as in the main code?)
+    #rotation = get_rotation_rate(omega, mesh)
+    #MPI.barrier(comm)
+    #if MPI.rank(comm) == 0:
+    #    info("**** Rotation rate of cylinder = %g" % rotation)
+    #    logfile.write("Rotation rate of cylinder = %g\n" % rotation)
+    #MPI.barrier(comm)
 
 # ======================================================================
 
@@ -192,14 +199,17 @@ def initial_porosity(param, X):
     phi_min = phiB - amplitude
     phi_max = phiB + amplitude
 
+    # MPI command needed for HDF5
+    comm = mpi_comm_world()
+
     if (read_initial_porosity == 1):
 
         initial_porosity_in    = param['initial_porosity_in']
-        h5file_init = HDF5File(initial_porosity_in, "r")
+        h5file_init = HDF5File(comm, initial_porosity_in, "r")
         phi_input   = Function(X)
         h5file_init.read(phi_input, "initial_porosity")
         phi_scaled  = phiB + (phi_input-0.5)*2.0*amplitude
-        phi_out     = project(phi_scaled, X)
+        phi_out     = project(phi_scaled)
 
         return phi_out
 
@@ -209,10 +219,6 @@ def initial_porosity(param, X):
         # Create temporary mesh and random porosity numpy array of the same size
         # Create larger mesh so that interpolation at the edges does not leave artefacts
         height_new = height * 1.1
-        # TODO: Figure out what resolution is best to use for the arbitrary mesh
-        el_new     = 150
-        #mesh       = RectangleMesh(-0.5*aspect*height_new, -0.5*height_new, aspect*height_new, \
-        #                           height_new, int(aspect*el_new), int(el_new), meshtype)
         mesh       = RectangleMesh(-0.5*aspect*height_new, -0.5*height_new, aspect*height_new, \
                                    height_new, int(aspect*el), int(el), meshtype)
         elements   = int(sqrt(mesh.num_vertices()))
@@ -224,8 +230,6 @@ def initial_porosity(param, X):
         phi_freq_filtered = numpy.zeros(phi_freq.shape, dtype = complex)  # filtered spectrum
 
         # Define filter spectrum
-        # TODO: Pull filter_range into parameter file?
-        #filter_range = 0.9 # fraction of spectrum maintained
         filter_range = 1.0 # fraction of spectrum maintained
         width        = int((filter_range * min(phi_array.shape)) / 2)
         centre_x     = phi_freq.shape[0]/2 # spectrum centre in x dimension
@@ -295,12 +299,12 @@ def check_phi(phi, logfile):
     info("**** Minimum porosity = %g" % (phi_min))
     info("**** Maximum porosity = %g" % (phi_max))
 
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Minimum porosity = %g; maximum porosity = %g\n" % (phi_min, phi_max))
 
     if phi_min < 0.0 or phi_max > 1.0:
         info("**** Porosity out of bounds --- EXITING\n")
-        if MPI.process_number() == 0:
+        if MPI.rank(comm) == 0:
             logfile.write("Porosity out of bounds --- EXITING\n")
             logfile.write("\nEOF\n")
             logfile.close()

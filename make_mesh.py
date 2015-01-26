@@ -20,7 +20,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 13 Sept 2013 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 # TODO: Allow for input of gmsh parameters to define refinement from
@@ -31,6 +31,7 @@ import sys
 import core
 import mesh_gen
 import mesh_gen_uniform
+import mesh_gen_lessrefinement
 
 # ======================================================================
 # Run parameters
@@ -73,7 +74,8 @@ if cylinder_mesh:
 
     # Create a mesh with gmsh
     #mesh_gen_uniform.cylinder_mesh_gen(filename=meshfile, \
-    mesh_gen.cylinder_mesh_gen(filename=meshfile, \
+    #mesh_gen.cylinder_mesh_gen(filename=meshfile, \
+    mesh_gen_lessrefinement.cylinder_mesh_gen(filename=meshfile, \
                                 aspect=aspect, \
                                 N=el, \
                                 h=height, \

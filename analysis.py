@@ -11,7 +11,7 @@
 # Garth Wells, University of Cambridge
 # John Rudge, University of Cambridge
 #
-# Last modified: 31 May 2013 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -23,6 +23,7 @@ try:
 except ImportError, e:
     pass
 
+comm = mpi_comm_world()
 
 # ======================================================================
 
@@ -180,7 +181,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     error_p     = (errornorm(analytical_p, shifted_p)) / analyt_norm
     info("     Pressure L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_p))
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Pressure L2 norms: analytical %g, numerical %g, error %g\n" \
                       % (analyt_norm, num_norm, error_p))
 
@@ -190,7 +191,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     error_u     = (errornorm(analytical_u, u)) / analyt_norm
     info("     Velocity L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_u))
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Velocity L2 norms: analytical %g, numerical %g, error %g\n" \
                       % (analyt_norm, num_norm, error_u))
 
@@ -200,7 +201,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     error_c     = (errornorm(analytical_comp, div_u)) / analyt_norm
     info("     Compaction rate L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_c))
-    if MPI.process_number() == 0:
+    if MPI.rank(comm) == 0:
         logfile.write("Compaction rate L2 norms: analytical %g, numerical %g, error %g\n" \
                       % (analyt_norm, num_norm, error_c))
     
@@ -447,17 +448,17 @@ def plane_wave_analysis(Q, u, t, param, logfile):
 
     info("t = %f: angle(t) = %f; k(t) = %f; s(t) = %f; A(t) = %f" \
          % (t, angle_deg, k_t, s_t, A_t))
-    if (MPI.process_number() == 0):
+    if (MPI.rank(comm) == 0):
         logfile.write("t = %f: angle(t) = %f; k(t) = %f; s(t) = %f; A(t) = %f\n" \
                       % (t, angle_deg, k_t, s_t, A_t))
     info("ds_dt(t) (Spiegelman 2003)   = %f; num_ds_dt(t) = %f; rel_error = %f" \
          % (ds_dt_S03, ds_dt, ds_dt_error_S03))
-    if (MPI.process_number() == 0):
+    if (MPI.rank(comm) == 0):
         logfile.write("ds_dt(t) (Spiegelman 2003)   = %f; num_ds_dt(t) = %f; rel_error = %f\n" \
                       % (ds_dt_S03, ds_dt, ds_dt_error_S03))
     info("ds_dt(t) (Takei & Katz subm.) = %f; num_ds_dt(t) = %f; rel_error = %f" \
          % (ds_dt_T12, ds_dt, ds_dt_error_T12))
-    if (MPI.process_number() == 0):
+    if (MPI.rank(comm) == 0):
         logfile.write("ds_dt(t) (Takei & Katz subm.) = %f; num_ds_dt(t) = %f; rel_error = %f\n" \
                       % (ds_dt_T12, ds_dt, ds_dt_error_T12))
 

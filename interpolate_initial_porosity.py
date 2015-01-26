@@ -17,7 +17,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 13 Sept 2013 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -59,6 +59,9 @@ angle_0   = math.pi * param['angle_0']
 k_0       = math.pi * param['k_0']
 nr_sines  = param['nr_sines']
 
+# MPI command needed for HDF5
+comm = mpi_comm_world()
+
 # ======================================================================
 # Mesh
 # ======================================================================
@@ -69,8 +72,8 @@ info("**** Reading mesh file: %s", meshfile)
 mesh = Mesh(meshfile)
 
 # Minimum and maximum element size
-h_min = MPI.min(mesh.hmin())
-h_max = MPI.max(mesh.hmax())
+h_min = MPI.min(comm, mesh.hmin())
+h_max = MPI.max(comm, mesh.hmax())
 info("hmin = %g, hmax = %g" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
@@ -133,9 +136,9 @@ X = FunctionSpace(mesh, "Lagrange", degree-1, constrained_domain=pbc)
 info("**** Interpolating initial porosity field ...")
 
 # Read in initial porosity
-h5file_phi_in = HDF5File(initial_porosity_in, "r")
+h5file_phi_in = HDF5File(comm, initial_porosity_in, "r")
 large_mesh    = Mesh()
-h5file_phi_in.read(large_mesh, "large_mesh")
+h5file_phi_in.read(large_mesh, "large_mesh", False)
 P             = FunctionSpace(large_mesh, "Lagrange", 1)
 phi_input     = Function(P)
 h5file_phi_in.read(phi_input, "initial_porosity")
@@ -145,7 +148,7 @@ phi_proj = Function(X)
 phi_proj.interpolate(phi_input)
 
 # Output initial porosity to HDF5 for later read-in
-h5file_phi_out = HDF5File(initial_porosity_out, "w")
+h5file_phi_out = HDF5File(comm, initial_porosity_out, "w")
 h5file_phi_out.write(phi_proj, "initial_porosity")
 h5file_phi_out.write(mesh, "mesh_file")
 File("initial_porosity_interpolated.pvd") << phi_proj

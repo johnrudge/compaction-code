@@ -23,7 +23,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 13 Sept 2013 by Laura Alisic
+# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -60,6 +60,9 @@ angle_0   = math.pi * param['angle_0']
 k_0       = math.pi * param['k_0']
 nr_sines  = param['nr_sines']
 
+# MPI command needed for HDF5
+comm = mpi_comm_world()
+
 # ======================================================================
 # Mesh
 # ======================================================================
@@ -70,8 +73,8 @@ mesh = RectangleMesh(0, 0, aspect*height, height, \
                      int(aspect*el), int(el), meshtype)
 
 # Smallest element size. Used to determine time step
-h_min = MPI.min(mesh.hmin())
-h_max = MPI.max(mesh.hmax())
+h_min = MPI.min(comm, mesh.hmin())
+h_max = MPI.max(comm, mesh.hmax())
 
 # Minimum and maximum element size
 info("hmin = %g, hmax = %g" % (h_min, h_max))
@@ -123,7 +126,7 @@ phi0 = Function(Z)
 phi0.interpolate(phi_init)
 
 # Output initial porosity to HDF5 for later read-in
-h5file_phi0 = HDF5File(initial_porosity_out, "w")
+h5file_phi0 = HDF5File(comm, initial_porosity_out, "w")
 h5file_phi0.write(phi0, "initial_porosity")
 h5file_phi0.write(mesh, "large_mesh")
 File("initial_porosity_original.pvd") << phi0
