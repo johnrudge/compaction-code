@@ -73,9 +73,9 @@ if cylinder_mesh:
     #mesh     = Mesh(geometry, 100)
 
     # Create a mesh with gmsh
-    #mesh_gen_uniform.cylinder_mesh_gen(filename=meshfile, \
     #mesh_gen.cylinder_mesh_gen(filename=meshfile, \
-    mesh_gen_lessrefinement.cylinder_mesh_gen(filename=meshfile, \
+    #mesh_gen_lessrefinement.cylinder_mesh_gen(filename=meshfile, \
+    mesh_gen_uniform.cylinder_mesh_gen(filename=meshfile, \
                                 aspect=aspect, \
                                 N=el, \
                                 h=height, \

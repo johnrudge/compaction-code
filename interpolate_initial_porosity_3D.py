@@ -17,7 +17,7 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 23 Jan 2015 by Laura Alisic
+# Last modified: 29 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -74,6 +74,7 @@ mesh = Mesh(meshfile)
 
 # Porosity
 X = FunctionSpace(mesh, "Lagrange", degree-1)
+#X = FunctionSpace(mesh, "DG", degree-1)
 
 # ======================================================================
 #  Initial porosity
