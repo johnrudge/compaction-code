@@ -1,26 +1,26 @@
 #!/usr/bin/env python
 
 # ======================================================================
-# Script plot_integrals_3D.py
+# Script plot_integrals_random_3D.py
 #
 # Plots integrals in one plot; defined simply by listing file names.
-# Currently only integrals at t = 0 are plotted.
 #
 # Run using:
-#     python plot_integrals_3D.py
+#     plot_integrals_random_3D.py
 #
-# The code uses results from postproc_3D.py or postproc.py.
+# The code uses results from postproc_3D.py.
 #
 # This code only works in serial.
 #
 # Author:
 # Laura Alisic <la339@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 2 Feb 2015 by Laura Alisic
+# Last modified: 3 Feb 2015 by Laura Alisic
 # ======================================================================
 
 import sys, math
 import numpy as np
+import numpy.fft as np_fft
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -59,80 +59,115 @@ def read_data(data_file):
 # Parameters
 # ======================================================================
 
-# Title string
-title = 'test'
-title_string = '%s' % (title)
-
 # List of integrals to plot
-#model_list = ['../analytic_N30_r0p05', \
-#              '../num_N30_r0p05']
-model     = '.'
-step_list = [0, 1, 2, 3, 4]
+#alpha = [28, 28, 28, 28]
+phi0  = 0.05
+order = 9
+
+#rzeta = [1.7, 1.7, 1.7, 1.7]
+
+step_list  = [0, 1, 2, 3, 4]
+
+model = ['.', '.', '.', '.', '.']
 
 # List of colors to use
 color_list = ['Black', 'Blue', 'Green', 'Red', 'Cyan', 'Magenta']
 
 # Text strings for legend
-legend_list = ['outstep 0', 'outstep 1', 'outstep 2', 'outstep 3', 'outstep 4']
+#legend_list = [r'$\gamma$ = 0.0', r'$\gamma$ = 0.02', r'$\gamma$ = 0.04', r'$\gamma$ = 0.06']#, \
+#legend_list = [r'$r_{\zeta}$ = 1.7', r'$r_{\zeta}$ = 5.0', r'$r_{\zeta}$ = 10.0', \
+#               r'$r_{\zeta}$ = 20.0', r'$r_{\zeta}$ = 50.0', r'$r_{\zeta}$ = 100.0']
+#legend_list = [r'$R$ = 1.7', r'$R$ = 5.0', r'$R$ = 10.0', \
+#               r'$R$ = 20.0', r'$R$ = 50.0', r'$R$ = 100.0']
+#legend_list = [r'$\alpha$ = 0', r'$\alpha$ = 15', r'$\alpha$ = 28', \
+#               r'$\alpha$ = 50']
+legend_list = ['step 0', 'step 1', 'step 2', 'step 3', 'step 4']
+
 
 # Figure output names
-phi_fig_name  = 'porosity_integrals_%s.pdf' % (title)
-comp_fig_name = 'compaction_rate_integrals_%s.pdf' % (title)
+#phi_fig_name  = 'porosity_integrals_alpha%g_rzeta%g_order%g.pdf' % (alpha[0], rzeta[0], order)
+#comp_fig_name = 'compaction_rate_integrals_alpha%g_rzeta%g_order%g.pdf' % (alpha[0], rzeta[0], order)
+#phi_fig_name  = 'porosity_integrals_alpha%g_strain0_05_new.pdf' % (alpha[0])
+#comp_fig_name = 'compaction_rate_integrals_alpha%g_strain0_05_new.pdf' % (alpha[0])
+phi_fig_name  = 'porosity_integrals_fit.pdf'
+comp_fig_name = 'compaction_rate_integrals_fit.pdf'
 
 # Figure IDs
 phi_id  = 1
 comp_id = 2
 
 # ======================================================================
-# Prepare integral figures
+# Plot integral figures
 # ======================================================================
 
 # Create figure for porosity
 plt.figure(phi_id, figsize = (5,3))
-phi_ax  = plt.subplot(111)
-phi_min = 0.05
-phi_max = 0.05
+phi_ax = plt.subplot(111)
+phi_min = phi0
+phi_max = phi0
 
 # Create figure for compaction rate
 plt.figure(comp_id, figsize = (5,3))
-comp_ax  = plt.subplot(111)
+comp_ax = plt.subplot(111)
 comp_min = 0.0
 comp_max = 0.0
  
-#for j, model in enumerate(model_list):
 for j, step in enumerate(step_list):
 
-    print 'Plotting step ', step
+    print 'Plotting...'
 
     # Figure out file names to read
-    phi_name   = '%s/output/radius_integral_porosity_%d.txt' % (model, step)
-    comp_name = '%s/output/radius_integral_compaction_rate_%d.txt' % (model, step)
+    phi_name  = '%s/output/radius_integral_porosity_%d.txt' % (model[j], step)
+    comp_name = '%s/output/radius_integral_compaction_rate_%d.txt' % (model[j], step)
 
     [x_phi, y_phi]   = read_data(phi_name) 
     [x_comp, y_comp] = read_data(comp_name) 
                 
-    # Plot pressure integrals 
+    # Plot porosity integrals 
     plt.figure(phi_id)
-    plt.plot(x_phi, y_phi, color_list[j])
+    plt.plot(x_phi, y_phi, linestyle = '.', marker = '+', color = color_list[j], label = '_nolegend_')
+
+    # Compute fft polynomial for porosity
+    fft_coeffs = np_fft.rfft(y_phi[0:-1])
+    # Zero out all but lowest 10 coefficients
+    fft_coeffs[order:] = 0
+    y_fit = np_fft.irfft(fft_coeffs)
+
+    # Make y same length as x
+    y_fit = np.append(y_fit, y_fit[0])
+
+    # Plot fitted function
+    plt.plot(x_phi, y_fit, color = color_list[j], label = legend_list[j])
 
     # Plot compaction rate integrals 
     plt.figure(comp_id)
-    plt.plot(x_comp, y_comp, color_list[j])
+    plt.plot(x_comp, y_comp, linestyle = '.', marker = '+', color = color_list[j], label = '_nolegend_')
+
+    # Compute fft polynomial for compaction rate
+    fft_coeffs = np_fft.rfft(y_comp[0:-1])
+    # Zero out all but lowest coefficients
+    fft_coeffs[order:] = 0
+    y_fit = np_fft.irfft(fft_coeffs)
+
+    # Make y same length as x
+    y_fit = np.append(y_fit, y_fit[0])
+
+    # Plot fitted function
+    plt.plot(x_comp, y_fit, color = color_list[j], label = legend_list[j])
 
     # Save min/max y values to determine y-axis range
     phi_min = min(phi_min, min(y_phi))
     phi_max = max(phi_max, max(y_phi))
     comp_min = min(comp_min, min(y_comp))
     comp_max = max(comp_max, max(y_comp))
+   
 
-# ======================================================================
 # Finish porosity plot 
-# ======================================================================
-
 # Plot dotted black line at background porosity
 plt.figure(phi_id)
-phi_background_array = np.ones(len(x_phi)) * 0.05
-plt.plot(x_phi, phi_background_array, '--k')
+phi_background_array = phi0*np.ones(len(x_phi))
+plt.plot(x_phi, phi_background_array, '--k', label = '_nolegend_')
+
 
 # X axis
 plt.xlim(0, 2*np.pi)
@@ -141,11 +176,14 @@ plt.xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi],\
 plt.xlabel('Angle')
 
 # Y axis
-plt.ylim(phi_min*0.80, phi_max*1.20)
+plt.ylim(phi_min*0.90, phi_max*1.03)
 plt.ylabel('Porosity')
 
 # Legend and title
-plt.title(title_string)
+#title_string = r'$\alpha$ = %g, $r_{\zeta}$ = %g' % (alpha[0], rzeta[0])
+#title_string = r'$\alpha$ = %g, $\gamma$ = 0.1' % (alpha[0])
+#title_string = r'$r_{\zeta}$ = %g, $\gamma$ = 0.1' % (rzeta[0])
+#plt.title(title_string)
 phi_box = phi_ax.get_position()
 phi_ax.set_position([phi_box.x0, phi_box.y0, phi_box.width*0.8, phi_box.height])
 phi_ax.legend(legend_list, loc = 'center left', bbox_to_anchor = (1, 0.5))
@@ -153,14 +191,11 @@ phi_ax.legend(legend_list, loc = 'center left', bbox_to_anchor = (1, 0.5))
 # Save figure to file
 plt.savefig(phi_fig_name, bbox_inches='tight')
 
-# ======================================================================
 # Finish compaction rate plot 
-# ======================================================================
-
 # Plot dotted black line at compaction rate = 0.0
 plt.figure(comp_id)
 comp_zero_array = np.zeros(len(x_comp))
-plt.plot(x_comp, comp_zero_array, '--k')
+plt.plot(x_comp, comp_zero_array, '--k', label = '_nolegend_')
 
 # X axis
 plt.xlim(0, 2*np.pi)
@@ -169,11 +204,11 @@ plt.xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi],\
 plt.xlabel('Angle')
 
 # Y axis
-plt.ylim(comp_min*1.2, comp_max*1.20)
+plt.ylim(comp_min*1.2, comp_max*1.05)
 plt.ylabel('Compaction rate')
 
 # Legend and title
-plt.title(title_string)
+#plt.title(title_string)
 comp_box = comp_ax.get_position()
 comp_ax.set_position([comp_box.x0, comp_box.y0, comp_box.width*0.8, comp_box.height])
 comp_ax.legend(legend_list, loc = 'center left', bbox_to_anchor = (1, 0.5))
@@ -187,4 +222,4 @@ plt.close(comp_id)
 
 print 'Done!'
 
-# EOF plot_integrals_3D.py
+# EOF plot_integrals_random_3D.py

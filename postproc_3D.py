@@ -16,13 +16,15 @@
 # Authors:
 # Laura Alisic <la339@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 2 Feb 2015 by Laura Alisic
+# Last modified: 3 Feb 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
 import sys, math
 import analysis
 import numpy as np
+import h5py
+import os.path
 
 # ======================================================================
 # Run parameters
@@ -53,8 +55,9 @@ comm = mpi_comm_world()
 
 # Read mesh from porosity file (can do from any of the .h5 files)
 mesh = Mesh()
-h5file_phi = HDF5File(comm, "porosity_0.h5", "r")
-h5file_phi.read(mesh, "mesh_file", False)
+h5file_mesh = HDF5File(comm, "porosity_0.h5", "r")
+h5file_mesh.read(mesh, "mesh_file", False)
+h5file_mesh.close()
 
 # Define function space
 Q = FunctionSpace(mesh, "Lagrange", degree-1)
@@ -74,20 +77,74 @@ comp = Function(Q)
 # Loop over output steps
 i = 0
 
+#while (i == 0):
 while 1:
 
-    print '==== Output step ', i
-
-    try:
-        # Input: HDF5 files from model simulation, for output step i
-        h5file_phi  = HDF5File(comm, "porosity_%d.h5" % i, "r")
-        h5file_comp = HDF5File(comm, "compaction_rate_%d.h5" % i, "r")
-
-        h5file_phi.read(phi, "porosity")
-        h5file_comp.read(comp, "compaction_rate")
-    except:
-        print 'Last output step reached.'
+    # Make sure file exists, otherwise stop the script
+    hdf_file = "porosity_%d.h5" % (i)
+    if os.path.exists(hdf_file):
+        print '\n==== Output step ', i
+    else:
+        print '\nLast output step reached, exiting.\n'
         break
+
+    # Make sure vector fields in HDF5 are properly named; models run on
+    # ARCHER have different names for some reason (different HDF version?)
+
+    # Target name for datasets
+    target_name = "/vector"
+
+    # Find out what dataset is actually named for porosity
+    cmd = "h5ls -r porosity_%d.h5/porosity | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
+    os.system(cmd)
+    temp = open('temp.out', 'r')
+    field_name = str.strip(temp.read())
+    print 'Porosity dataset name: ', field_name
+    temp.close()
+    cmd = "rm temp.out"
+    os.system(cmd)
+
+    # If porosity dataset name isn't 'vector', rename to 'vector'
+    if (field_name != target_name):
+        print 'Renaming porosity dataset...'
+        h5file_phi_temp = h5py.File("porosity_%d.h5" % i, "r+")
+        h5file_phi_temp.move("porosity" + field_name, "porosity" + target_name)
+        h5file_phi_temp.close()
+    else:
+        print 'No renaming required...'
+
+    # Find out what dataset is actually named for compaction rate
+    cmd = "h5ls -r compaction_rate_%d.h5/compaction_rate | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
+    os.system(cmd)
+    temp = open('temp.out', 'r')
+    field_name = str.strip(temp.read())
+    print 'Compaction rate dataset name: ', field_name
+    temp.close()
+    cmd = "rm temp.out"
+    os.system(cmd)
+
+    # If compaction rate dataset name isn't 'vector', rename to 'vector'
+    if (field_name != target_name):
+        print 'Renaming compaction rate dataset...'
+        h5file_comp_temp = h5py.File("compaction_rate_%d.h5" % i, "r+")
+        h5file_comp_temp.move("compaction_rate" + field_name, "compaction_rate" + target_name)
+        h5file_comp_temp.close()
+    else:
+        print 'No renaming required...'
+
+    # Read HDF5 files from model simulation for further processing
+    print 'Reading data...'
+    h5file_phi  = HDF5File(comm, "porosity_%d.h5" % i, "r")
+    h5file_comp = HDF5File(comm, "compaction_rate_%d.h5" % i, "r")
+
+    h5file_phi.read(phi, "porosity")
+    h5file_comp.read(comp, "compaction_rate")
+    
+    h5file_phi.close()
+    h5file_comp.close()
+
+    del h5file_phi
+    del h5file_comp
 
     # Computation of integrals around cylinder
     analysis.cylinder_integrals_slice(phi, 'porosity', param, i)
