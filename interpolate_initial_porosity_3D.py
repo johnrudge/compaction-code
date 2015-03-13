@@ -73,8 +73,7 @@ mesh = Mesh(meshfile)
 # ======================================================================
 
 # Porosity
-X = FunctionSpace(mesh, "Lagrange", degree-1)
-#X = FunctionSpace(mesh, "DG", degree-1)
+X = FunctionSpace(mesh, "DG", degree-1)
 
 # ======================================================================
 #  Initial porosity

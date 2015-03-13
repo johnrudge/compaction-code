@@ -72,7 +72,7 @@ mesh = Mesh(mesh_file)
 # ======================================================================
 
 # Porosity
-Z = FunctionSpace(mesh, "Lagrange", degree-1)
+Z = FunctionSpace(mesh, "DG", degree-1)
 
 # ======================================================================
 # Initial porosity
@@ -101,7 +101,7 @@ class PorosityField(Expression):
         jnp = float(sp.jnp_zeros(n, 1))        
 
         # Bessel functions of the first kind
-        jn1 = sp.jv(n, jnp * rho) 
+        jn1 = sp.jv(n, jnp * rho / radius) 
         jn2 = sp.jv(n, jnp)
 
         # Porosity field

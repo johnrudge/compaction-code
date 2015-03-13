@@ -47,6 +47,7 @@ degree   = param['degree']
 # Mesh parameters
 read_mesh     = param['read_mesh']
 meshtype      = param['meshtype']
+meshfile      = param['meshfile']
 aspect        = param['aspect']
 el            = param['el']
 height        = param['height']
@@ -69,9 +70,16 @@ comm = mpi_comm_world()
 
 # Create mesh on large square without inclusion.
 info("**** Generating mesh . . . ")
-mesh = BoxMesh(-1.05, -1.05, -0.05, \
-           1.05, 1.05, 1.05, \
-           int(2*el), int(2*el), int(el))
+
+if read_mesh:
+    mesh = Mesh(meshfile)
+else:
+    mesh = BoxMesh(-1.55, -1.55, -0.05, \
+           1.55, 1.55, 1.05, \
+           int(3*el), int(3*el), int(el))
+    #mesh = BoxMesh(-1.05, -1.05, -0.05, \
+    #       1.05, 1.05, 1.05, \
+    #       int(2*el), int(2*el), int(el))
 
 # ======================================================================
 # Function spaces
@@ -99,7 +107,8 @@ h5file_phi0.write(mesh, "large_mesh")
 File("initial_porosity_original.pvd") << phi0
 
 # Compute initial mean porosity
-mean_phi = assemble(phi0*dx)/(2.1*2.1*1.1)
+#mean_phi = assemble(phi0*dx)/(2.1*2.1*1.1)
+mean_phi = assemble(phi0*dx)/(3.1*3.1*1.1)
 info("**** Mean porosity = %g" % (mean_phi))
 
 # EOF
