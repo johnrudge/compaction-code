@@ -16,7 +16,7 @@
 # Authors:
 # Laura Alisic <la339@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 3 Feb 2015 by Laura Alisic
+# Last modified: 23 Mar 2015 by Laura Alisic
 # ======================================================================
 
 from dolfin import *
@@ -55,7 +55,8 @@ comm = mpi_comm_world()
 
 # Read mesh from porosity file (can do from any of the .h5 files)
 mesh = Mesh()
-h5file_mesh = HDF5File(comm, "porosity_0.h5", "r")
+#h5file_mesh = HDF5File(comm, "porosity_0.h5", "r")
+h5file_mesh = HDF5File(comm, "ln_porosity_0.h5", "r")
 h5file_mesh.read(mesh, "mesh_file", False)
 h5file_mesh.close()
 
@@ -81,7 +82,8 @@ i = 0
 while 1:
 
     # Make sure file exists, otherwise stop the script
-    hdf_file = "porosity_%d.h5" % (i)
+    #hdf_file = "porosity_%d.h5" % (i)
+    hdf_file = "ln_porosity_%d.h5" % (i)
     if os.path.exists(hdf_file):
         print '\n==== Output step ', i
     else:
@@ -95,7 +97,8 @@ while 1:
     target_name = "/vector"
 
     # Find out what dataset is actually named for porosity
-    cmd = "h5ls -r porosity_%d.h5/porosity | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
+    #cmd = "h5ls -r porosity_%d.h5/porosity | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
+    cmd = "h5ls -r ln_porosity_%d.h5/ln_porosity | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
     os.system(cmd)
     temp = open('temp.out', 'r')
     field_name = str.strip(temp.read())
@@ -107,8 +110,10 @@ while 1:
     # If porosity dataset name isn't 'vector', rename to 'vector'
     if (field_name != target_name):
         print 'Renaming porosity dataset...'
-        h5file_phi_temp = h5py.File("porosity_%d.h5" % i, "r+")
-        h5file_phi_temp.move("porosity" + field_name, "porosity" + target_name)
+        #h5file_phi_temp = h5py.File("porosity_%d.h5" % i, "r+")
+        h5file_phi_temp = h5py.File("ln_porosity_%d.h5" % i, "r+")
+        #h5file_phi_temp.move("porosity" + field_name, "porosity" + target_name)
+        h5file_phi_temp.move("ln_porosity" + field_name, "ln_porosity" + target_name)
         h5file_phi_temp.close()
     else:
         print 'No renaming required...'
@@ -134,10 +139,12 @@ while 1:
 
     # Read HDF5 files from model simulation for further processing
     print 'Reading data...'
-    h5file_phi  = HDF5File(comm, "porosity_%d.h5" % i, "r")
+    #h5file_phi  = HDF5File(comm, "porosity_%d.h5" % i, "r")
+    h5file_phi  = HDF5File(comm, "ln_porosity_%d.h5" % i, "r")
     h5file_comp = HDF5File(comm, "compaction_rate_%d.h5" % i, "r")
 
-    h5file_phi.read(phi, "porosity")
+    #h5file_phi.read(phi, "porosity")
+    h5file_phi.read(phi, "ln_porosity")
     h5file_comp.read(comp, "compaction_rate")
     
     h5file_phi.close()
@@ -146,8 +153,12 @@ while 1:
     del h5file_phi
     del h5file_comp
 
+    # Convert porosity from ln(phi) to phi
+    phi_new = Expression(("exp(phi)"), phi = phi, element = Q.ufl_element())
+
     # Computation of integrals around cylinder
-    analysis.cylinder_integrals_slice(phi, 'porosity', param, i)
+    #analysis.cylinder_integrals_slice(phi, 'porosity', param, i)
+    analysis.cylinder_integrals_slice(phi_new, 'porosity', param, i)
     analysis.cylinder_integrals_slice(comp, 'compaction_rate', param, i)
 
     i += 1

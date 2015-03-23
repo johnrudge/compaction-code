@@ -40,10 +40,13 @@ def initial_porosity(param, X):
 
     if (read_initial_porosity == 1):
 
+        # MPI command needed for HDF5
+        comm = mpi_comm_world()
+
         initial_porosity_in    = param['initial_porosity_in']
-        h5file_init = HDF5File(initial_porosity_in, "r")
+        h5file_init = HDF5File(comm, initial_porosity_in, "r")
         phi_input   = Function(X)
-        h5file_init.read(phi_input, "initial_porosity")
+        h5file_init.read(phi_input, "initial_porosity", False)
         phi_scaled  = phiB + (phi_input-0.5)*2.0*amplitude
         phi_out     = project(phi_scaled, X)
 
