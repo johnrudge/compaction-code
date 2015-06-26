@@ -66,9 +66,21 @@ order = 9
 
 #rzeta = [1.7, 1.7, 1.7, 1.7]
 
-step_list  = [0, 1, 2, 3, 4]
+# output for same model at times 0, 0.1, 0.2, 0.3, 0.5 (, 1.0 if available)
+#step_list  = [0, 6, 12, 18, 30] # output_freq = 10
+#step_list  = [0, 6, 12, 18] # output_freq = 10
+step_list  = [0, 3, 6, 9, 15, 10] # output_freq = 20
 
-model = ['.', '.', '.', '.', '.']
+model = ['.', '.', '.', '.', '.', \
+         '../random_alpha28_R20_amp5e-3_noring_restart1']
+
+# output for different models at t = 0.5
+#step_list = [12, 12, 12, 12]
+
+#model = ['../random_alpha50_R1_7_amp5e-3_noring', \
+#         '../random_alpha50_R5_amp5e-3_noring', \
+#         '../random_alpha50_R10_amp5e-3_noring', \
+#         '../random_alpha50_R20_amp5e-3_noring']
 
 # List of colors to use
 color_list = ['Black', 'Blue', 'Green', 'Red', 'Cyan', 'Magenta']
@@ -77,20 +89,20 @@ color_list = ['Black', 'Blue', 'Green', 'Red', 'Cyan', 'Magenta']
 #legend_list = [r'$\gamma$ = 0.0', r'$\gamma$ = 0.02', r'$\gamma$ = 0.04', r'$\gamma$ = 0.06']#, \
 #legend_list = [r'$r_{\zeta}$ = 1.7', r'$r_{\zeta}$ = 5.0', r'$r_{\zeta}$ = 10.0', \
 #               r'$r_{\zeta}$ = 20.0', r'$r_{\zeta}$ = 50.0', r'$r_{\zeta}$ = 100.0']
-#legend_list = [r'$R$ = 1.7', r'$R$ = 5.0', r'$R$ = 10.0', \
-#               r'$R$ = 20.0', r'$R$ = 50.0', r'$R$ = 100.0']
+#legend_list = [r'$R$ = 1.7', r'$R$ = 5.0', r'$R$ = 10.0', r'$R$ = 20.0'] #\
+              #r'$R$ = 50.0', r'$R$ = 100.0']
 #legend_list = [r'$\alpha$ = 0', r'$\alpha$ = 15', r'$\alpha$ = 28', \
 #               r'$\alpha$ = 50']
-legend_list = ['step 0', 'step 1', 'step 2', 'step 3', 'step 4']
+legend_list = [r'$t$ = 0', r'$t$ = 0.1', r'$t$ = 0.2', r'$t$ = 0.3', r'$t$ = 0.5', r'$t$ = 1.0']
 
 
 # Figure output names
 #phi_fig_name  = 'porosity_integrals_alpha%g_rzeta%g_order%g.pdf' % (alpha[0], rzeta[0], order)
 #comp_fig_name = 'compaction_rate_integrals_alpha%g_rzeta%g_order%g.pdf' % (alpha[0], rzeta[0], order)
-#phi_fig_name  = 'porosity_integrals_alpha%g_strain0_05_new.pdf' % (alpha[0])
-#comp_fig_name = 'compaction_rate_integrals_alpha%g_strain0_05_new.pdf' % (alpha[0])
-phi_fig_name  = 'porosity_integrals_fit.pdf'
-comp_fig_name = 'compaction_rate_integrals_fit.pdf'
+phi_fig_name  = 'porosity_integrals_alpha28_R20.pdf'
+comp_fig_name = 'compaction_rate_integrals_alpha28_R20.pdf'
+#phi_fig_name  = 'porosity_integrals_fit.pdf'
+#comp_fig_name = 'compaction_rate_integrals_fit.pdf'
 
 # Figure IDs
 phi_id  = 1
