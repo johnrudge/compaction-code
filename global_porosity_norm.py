@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # global_porosity_norm.py
@@ -8,7 +8,7 @@
 # Requires *.h5 output file form compaction-torsion code.
 #
 # Run by using:
-#     python global_porosity_norm.py [porosity file]
+#     python3 global_porosity_norm.py [porosity file]
 #
 # Author:
 # Laura Alisic, University of Cambridge
@@ -36,7 +36,7 @@ degree = 2
 parameters['allow_extrapolation'] = True
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # Define input file
 infile = sys.argv[1]

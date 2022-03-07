@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script run_preprocessing.py
@@ -6,7 +6,7 @@
 # Script to run a variety of preprocessing steps for model simulations.
 #
 # Run using:
-#     python run_preprocessing.py
+#     python3 run_preprocessing.py
 #
 # This script only runs in serial.
 #
@@ -24,16 +24,16 @@
 import sys, os
 
 # Create the mesh to do the numerical simulation on
-cmd = "python make_mesh.py param_make_mesh.cfg"
+cmd = "python3 make_mesh.py param_make_mesh.cfg"
 os.system(cmd)
 
 # Create the coarse initial random porosity field on a large mesh
-cmd = "python make_initial_porosity.py param_make_initial_porosity.cfg"
+cmd = "python3 make_initial_porosity.py param_make_initial_porosity.cfg"
 os.system(cmd)
 
 # Interpolate the coarse initial random porosity field onto the smaller
 # mesh used in the simulation
-cmd = "python interpolate_initial_porosity.py param_interpolate_initial_porosity.cfg"
+cmd = "python3 interpolate_initial_porosity.py param_interpolate_initial_porosity.cfg"
 os.system(cmd)
 
 # EOF

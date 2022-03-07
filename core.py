@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # core.py
@@ -85,7 +85,7 @@ def parse_param_file(filename):
     for line in lines:
 
         # Skip blank lines
-        if string.strip(line) == '':
+        if line.strip() == '':
             continue # to next line in control file
 
         # Skip comment lines starting with '#'
@@ -100,7 +100,7 @@ def parse_param_file(filename):
         (opt, a1, a2) = opt.partition('#')    
 
         # Isolate the key and value
-        (key, val)    = string.split(opt, '=')
+        (key, val)    = opt.split('=')
 
         # Store in dictionary with correct data type
         # (i.e., integer, float, or string)

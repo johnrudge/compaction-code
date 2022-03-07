@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # error_norms_spiral_staircase.py
@@ -15,7 +15,7 @@
 # fields are tailored to John's and Sander's codes.
 #
 # Run by using:
-#     python error_norms_spiral_staircase.py
+#     python3 error_norms_spiral_staircase.py
 #
 # Author:
 # Laura Alisic, University of Cambridge
@@ -88,7 +88,7 @@ degree = 2
 parameters['allow_extrapolation'] = True
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 
 # ======================================================================
@@ -98,8 +98,8 @@ comm = mpi_comm_world()
 error_vals = []  # Growth rate error
 
 for i, model in enumerate(model_list):
-    print '\nModel:', model_list[i]
-    print 'Resolution:', resolution[i]
+    print('\nModel:', model_list[i])
+    print('Resolution:', resolution[i])
 
     # Define files
     info("**** Defining input files...")
@@ -123,7 +123,7 @@ for i, model in enumerate(model_list):
   
     # Read in centerplane mesh
     plane_mesh_file = ("circle2D_N%s.xml" % resolution[i])
-    print plane_mesh_file
+    print(plane_mesh_file)
     plane_mesh = Mesh(plane_mesh_file)
 
     # Define function spaces on full mesh and on centerplane mesh
@@ -156,7 +156,7 @@ for i, model in enumerate(model_list):
     error_vals.append(error)
 
 
-print "Error array:", error_vals
+print("Error array:", error_vals)
 
 # For direct plotting: 
 #error_vals = [ 0.04351068644403, \

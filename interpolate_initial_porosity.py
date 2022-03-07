@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script interpolate_initial_porosity.py
@@ -7,7 +7,7 @@
 # It produces a porosity h5 field that can be used for model simulations.
 #
 # Run using:
-#     python interpolate_initial_porosity.py param_interpolate_initial_porosity.cfg
+#     python3 interpolate_initial_porosity.py param_interpolate_initial_porosity.cfg
 #
 # This script only runs in serial.
 #
@@ -60,7 +60,7 @@ k_0       = math.pi * param['k_0']
 nr_sines  = param['nr_sines']
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # ======================================================================
 # Mesh
@@ -68,7 +68,7 @@ comm = mpi_comm_world()
 
 # Read mesh from file; has to be exactly the same as used for the model
 # computation!
-info("**** Reading mesh file: %s", meshfile)
+info("**** Reading mesh file: %s" % meshfile)
 mesh = Mesh(meshfile)
 
 # Minimum and maximum element size
@@ -77,7 +77,7 @@ h_max = MPI.max(comm, mesh.hmax())
 info("hmin = %g, hmax = %g" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
-print "Shifting mesh"
+print("Shifting mesh")
 for x in mesh.coordinates():
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
@@ -101,7 +101,7 @@ for x in mesh.coordinates():
         else:
             x[1] = int(x[1] * precision - 0.5) / precision
 
-print "End mesh shift"
+print("End mesh shift")
 
 # Subdomain for periodic boundary condition (left and right boundaries)
 class PeriodicBoundary(SubDomain):

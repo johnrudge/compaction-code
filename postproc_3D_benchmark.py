@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script postproc_3D_simple.py
@@ -11,7 +11,7 @@
 # No plotting is being done in this script.
 #
 # Run using:
-#     python postproc_3D_simple.py
+#     python3 postproc_3D_simple.py
 #
 # This code only works in serial.
 #

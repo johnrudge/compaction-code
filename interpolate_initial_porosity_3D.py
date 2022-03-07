@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script interpolate_initial_porosity_3D.py
@@ -7,7 +7,7 @@
 # It produces a porosity h5 field that can be used for model simulations.
 #
 # Run using:
-#     python interpolate_initial_porosity_3D.py param_interpolate_initial_porosity_3D.cfg
+#     python3 interpolate_initial_porosity_3D.py param_interpolate_initial_porosity_3D.cfg
 #
 # This script only runs in serial.
 #

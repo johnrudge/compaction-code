@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script make_initial_porosity.py
@@ -6,7 +6,7 @@
 # Script to create initial porosity field on a coarse mesh and large domain.
 #
 # Run using:
-#     python make_initial_porosity.py param_make_initial_porosity.cfg
+#     python3 make_initial_porosity.py param_make_initial_porosity.cfg
 #
 # where param_make_initial_porosity.cfg determines the coarse mesh.
 # One can provide the parameter file in the local run directory, and rename
@@ -61,7 +61,7 @@ k_0       = math.pi * param['k_0']
 nr_sines  = param['nr_sines']
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # ======================================================================
 # Mesh
@@ -69,7 +69,7 @@ comm = mpi_comm_world()
 
 # Create mesh on large square without inclusion.
 info("**** Generating mesh . . . ")
-mesh = RectangleMesh(0, 0, aspect*height, height, \
+mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
                      int(aspect*el), int(el), meshtype)
 
 # Smallest element size. Used to determine time step
@@ -80,7 +80,7 @@ h_max = MPI.max(comm, mesh.hmax())
 info("hmin = %g, hmax = %g" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
-print "Shifting mesh"
+print("Shifting mesh")
 for x in mesh.coordinates():
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
@@ -104,7 +104,7 @@ for x in mesh.coordinates():
         else:
             x[1] = int(x[1] * precision - 0.5) / precision
 
-print "End mesh shift"
+print("End mesh shift")
 
 # ======================================================================
 # Function spaces

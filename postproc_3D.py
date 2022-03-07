@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script postproc_3D.py
@@ -9,7 +9,7 @@
 # No plotting is being done in this script.
 #
 # Run using:
-#     python postproc_3D.py
+#     python3 postproc_3D.py
 #
 # This code only works in serial.
 #
@@ -85,9 +85,9 @@ while 1:
     #hdf_file = "ln_porosity_%d.h5" % (i)
     hdf_file = "porosity_ln_%d.h5" % (i)
     if os.path.exists(hdf_file):
-        print '\n==== Output step ', i
+        print('\n==== Output step ', i)
     else:
-        print '\nLast output step reached, exiting.\n'
+        print('\nLast output step reached, exiting.\n')
         break
 
     # Make sure vector fields in HDF5 are properly named; models run on
@@ -102,43 +102,43 @@ while 1:
     os.system(cmd)
     temp = open('temp.out', 'r')
     field_name = str.strip(temp.read())
-    print 'Porosity dataset name: ', field_name
+    print('Porosity dataset name: ', field_name)
     temp.close()
     cmd = "rm temp.out"
     os.system(cmd)
 
     # If porosity dataset name isn't 'vector', rename to 'vector'
     if (field_name != target_name):
-        print 'Renaming porosity dataset...'
+        print('Renaming porosity dataset...')
         #h5file_phi_temp = h5py.File("ln_porosity_%d.h5" % i, "r+")
         h5file_phi_temp = h5py.File("porosity_ln_%d.h5" % i, "r+")
         #h5file_phi_temp.move("ln_porosity" + field_name, "ln_porosity" + target_name)
         h5file_phi_temp.move("porosity_ln" + field_name, "porosity_ln" + target_name)
         h5file_phi_temp.close()
     else:
-        print 'No renaming required...'
+        print('No renaming required...')
 
     # Find out what dataset is actually named for compaction rate
     cmd = "h5ls -r compaction_rate_%d.h5/compaction_rate | grep 'vector..' | awk '{print $1}' > temp.out" % (i)
     os.system(cmd)
     temp = open('temp.out', 'r')
     field_name = str.strip(temp.read())
-    print 'Compaction rate dataset name: ', field_name
+    print('Compaction rate dataset name: ', field_name)
     temp.close()
     cmd = "rm temp.out"
     os.system(cmd)
 
     # If compaction rate dataset name isn't 'vector', rename to 'vector'
     if (field_name != target_name):
-        print 'Renaming compaction rate dataset...'
+        print('Renaming compaction rate dataset...')
         h5file_comp_temp = h5py.File("compaction_rate_%d.h5" % i, "r+")
         h5file_comp_temp.move("compaction_rate" + field_name, "compaction_rate" + target_name)
         h5file_comp_temp.close()
     else:
-        print 'No renaming required...'
+        print('No renaming required...')
 
     # Read HDF5 files from model simulation for further processing
-    print 'Reading data...'
+    print('Reading data...')
     #h5file_phi  = HDF5File(comm, "ln_porosity_%d.h5" % i, "r")
     h5file_phi  = HDF5File(comm, "porosity_ln_%d.h5" % i, "r")
     h5file_comp = HDF5File(comm, "compaction_rate_%d.h5" % i, "r")

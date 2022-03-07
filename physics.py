@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # physics.py
@@ -17,7 +17,7 @@
 from dolfin import *
 import numpy, math, sys
 
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # ======================================================================
 
@@ -98,8 +98,8 @@ def stress(phi, p, u, param):
     rzeta        = param['rzeta']
 
     return 2.0*shear_visc*sym(grad(u)) + (rzeta*bulk_visc - \
-           (2.0/3.0)*shear_visc)*div(u)*Identity(u.cell().topological_dimension()) \
-           - p*Identity(u.cell().topological_dimension())
+           (2.0/3.0)*shear_visc)*div(u)*Identity(2) \
+           - p*Identity(2)
 
 # ======================================================================
 
@@ -126,7 +126,7 @@ def torque(phi, p, u, param, mesh, ds_object):
     """Torque on an object"""
 
     t       = traction(phi, p, u, param, mesh)
-    x_perp  = Expression(("-x[1]", "x[0]"))
+    x_perp  = Expression(("-x[1]", "x[0]"), degree = 1)
 
     return dot(x_perp, t)*ds_object
 
@@ -135,7 +135,7 @@ def torque(phi, p, u, param, mesh, ds_object):
 def calculate_rigid_rotation_error(u, omega, ds_object):
     """Calculate rigid body rotation error of the cylinder"""
 
-    x_perp     = Expression(("-x[1]", "x[0]"))
+    x_perp     = Expression(("-x[1]", "x[0]"), degree = 1)
     u_rotation = omega * x_perp
     error      = ((u_rotation - u)**2)*ds_object
 
@@ -158,7 +158,7 @@ def print_cylinder_diagnostics(phi, p, u, omega, param, mesh, ds_cylinder, logfi
     """Print various diagnostics about the cylinder, like torque, rigid body rotationness, and rotation rate"""
 
     # MPI
-    comm = mpi_comm_world()
+    comm = MPI.comm_world
 
     total_torque = assemble(torque(phi, p, u, param, mesh, ds_cylinder))
     info("**** Torque in numerical solution = %g" % total_torque)
@@ -200,7 +200,7 @@ def initial_porosity(param, X):
     phi_max = phiB + amplitude
 
     # MPI command needed for HDF5
-    comm = mpi_comm_world()
+    comm = MPI.comm_world
 
     if (read_initial_porosity == 1):
 
@@ -219,8 +219,8 @@ def initial_porosity(param, X):
         # Create temporary mesh and random porosity numpy array of the same size
         # Create larger mesh so that interpolation at the edges does not leave artefacts
         height_new = height * 1.1
-        mesh       = RectangleMesh(-0.5*aspect*height_new, -0.5*height_new, aspect*height_new, \
-                                   height_new, int(aspect*el), int(el), meshtype)
+        mesh       = RectangleMesh(Point(-0.5*aspect*height_new, -0.5*height_new), Point(aspect*height_new, \
+                                   height_new), int(aspect*el), int(el), meshtype)
         elements   = int(sqrt(mesh.num_vertices()))
         phi_array  = 2.0 * amplitude * numpy.random.rand(elements, elements) + phi_min
 
@@ -237,8 +237,8 @@ def initial_porosity(param, X):
 
         # Only store the coefficients for ifft that are within the desired part of the spectrum
         # Low-pass filter: cut the high-frequency ends of the shifted spectrum
-        for i in range(centre_x - width, centre_x + width):
-            for j in range(centre_y - width, centre_y + width):
+        for i in range(int(centre_x - width), int(centre_x + width)):
+            for j in range(int(centre_y - width), int(centre_y + width)):
                 phi_freq_filtered[i,j] = phi_freq[i,j]
 
         # From frequency to spatial domain
@@ -259,7 +259,7 @@ def initial_porosity(param, X):
             shift    = numpy.random.rand(2, nr_sines)
             k_rand   = k_0 * numpy.random.rand(2, nr_sines)
 
-        class IC_porosity(Expression):
+        class IC_porosity(UserExpression):
             def eval(self, v, x):
 
                 # Uniform initial field

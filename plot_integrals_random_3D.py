@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script plot_integrals_random_3D.py
@@ -126,7 +126,7 @@ comp_max = 0.0
  
 for j, step in enumerate(step_list):
 
-    print 'Plotting...'
+    print('Plotting...')
 
     # Figure out file names to read
     phi_name  = '%s/output/radius_integral_porosity_%d.txt' % (model[j], step)
@@ -232,6 +232,6 @@ plt.savefig(comp_fig_name, bbox_inches='tight')
 plt.close(phi_id)
 plt.close(comp_id)
 
-print 'Done!'
+print('Done!')
 
 # EOF plot_integrals_random_3D.py

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # error_norms_3D.py
@@ -12,7 +12,7 @@
 # fields are tailored to John's and Sander's codes.
 #
 # Run by using:
-#     python error_norms_3D.py
+#     python3 error_norms_3D.py
 #
 # Author:
 # Laura Alisic, University of Cambridge
@@ -149,7 +149,7 @@ degree = 2
 parameters['allow_extrapolation'] = True
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # ======================================================================
 # Loop over models
@@ -162,7 +162,7 @@ error_du_vals   = [] # Velocity perturbation error
 error_comp_vals = []  # Compaction rate error
 
 for i, model in enumerate(an_model_list):
-    print 'Models:', an_model_list[i], 'and', num_model_list[i]
+    print('Models:', an_model_list[i], 'and', num_model_list[i])
 
     # Define files
     info("**** Defining input files...")

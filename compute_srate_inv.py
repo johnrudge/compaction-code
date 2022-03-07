@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # compute_srate_inv.py
@@ -8,7 +8,7 @@
 # Requires *.h5 output file form compaction-torsion code.
 #
 # Run by using:
-#     python compute_srate_inv.py [porosity file]
+#     python3 compute_srate_inv.py [porosity file]
 #
 # Author:
 # Laura Alisic, University of Cambridge
@@ -36,7 +36,7 @@ degree = 2
 parameters['allow_extrapolation'] = True
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # Define input file
 infile = sys.argv[1]
@@ -62,7 +62,7 @@ h5file_us.read(us, "velocity")
 
 # Compute strain rate field
 info("Compute strain rate")
-Id = Identity(us.cell().geometric_dimension())
+Id = Identity(2)
 srate = sym(grad(us)) - Id * div(us) / 3.0
 srate_inv = sqrt(0.5*inner(srate, srate))
 

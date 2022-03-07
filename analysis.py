@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # analysis.py
@@ -16,14 +16,11 @@
 
 from dolfin import *
 import numpy, sys, math
+import scipy
+from scipy.special import kv, kvp  # Bessel functions and derivatives
 
-try:
-    import scipy
-    from scipy.special import kv, kvp  # Bessel functions and derivatives
-except ImportError, e:
-    pass
 
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # ======================================================================
 

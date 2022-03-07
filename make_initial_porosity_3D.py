@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script make_initial_porosity_3D.py
@@ -6,7 +6,7 @@
 # Script to create initial porosity field on a coarse mesh and large domain.
 #
 # Run using:
-#     python make_initial_porosity_3D.py param_make_initial_porosity_3D.cfg
+#     python3 make_initial_porosity_3D.py param_make_initial_porosity_3D.cfg
 #
 # where param_make_initial_porosity_3D.cfg determines the coarse mesh.
 # One can provide the parameter file in the local run directory, and rename

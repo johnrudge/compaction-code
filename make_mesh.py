@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script make_mesh.py
@@ -6,7 +6,7 @@
 # Script to create mesh *.xml file for later model run.
 #
 # Run using:
-#     python make_mesh.py param_make_mesh.cfg
+#     python3 make_mesh.py param_make_mesh.cfg
 #
 # where param_make_mesh.cfg is an example file with run parameters.
 # One can provide the parameter file in the local run directory, and rename

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script plot_integrals_3D.py
@@ -7,7 +7,7 @@
 # Currently only integrals at t = 0 are plotted.
 #
 # Run using:
-#     python plot_integrals_3D.py
+#     python3 plot_integrals_3D.py
 #
 # The code uses results from postproc_3D.py or postproc.py.
 #
@@ -112,7 +112,7 @@ comp_max = 0.0
 #for j, model in enumerate(model_list):
 for j, step in enumerate(step_list):
 
-    print 'Plotting step ', step
+    print('Plotting step ', step)
 
     # Figure out file names to read
     phi_name   = '%s/output/radius_integral_porosity_%d.txt' % (model[j], step)
@@ -202,6 +202,6 @@ plt.savefig(comp_fig_name, bbox_inches='tight')
 plt.close(phi_id)
 plt.close(comp_id)
 
-print 'Done!'
+print('Done!')
 
 # EOF plot_integrals_3D.py

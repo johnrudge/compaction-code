@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script make_initial_porosity_spiral_staircase.py
@@ -7,7 +7,7 @@
 # torsion benchmark.
 #
 # Run using:
-#     python make_initial_porosity_spiral_staircase.py param_spiral_staircase.cfg
+#     python3 make_initial_porosity_spiral_staircase.py param_spiral_staircase.cfg
 #
 # where param_spiral_staircase.cfg provides needed parameters. 
 #

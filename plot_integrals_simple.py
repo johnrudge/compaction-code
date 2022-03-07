@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script plot_integrals_simple.py
@@ -7,7 +7,7 @@
 # Currently only integrals at t = 0 are plotted.
 #
 # Run using:
-#     python plot_integrals_simple.py
+#     python3 plot_integrals_simple.py
 #
 # The code uses results from postproc_3D.py or postproc.py.
 #
@@ -114,7 +114,7 @@ comp_max = 0.0
  
 for j, model in enumerate(model_list):
 
-    print 'Plotting...'
+    print('Plotting...')
 
     # Figure out file names to read
     pf_name   = '%s/output/radius_integral_pressure_0.txt' % (model)
@@ -234,6 +234,6 @@ plt.close(pf_id)
 plt.close(pc_id)
 plt.close(comp_id)
 
-print 'Done!'
+print('Done!')
 
 # EOF plot_integrals_simple.py

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script postproc.py
@@ -221,7 +221,7 @@ while 1:
         h5file_vel.read(vel, "velocity_%d" % i)
         h5file_pres.read(pres, "pressure_%d" % i)
     except:
-        print 'Last output step reached.'
+        print('Last output step reached.')
         break
 
     # Determine time step length using velocity field
@@ -232,8 +232,8 @@ while 1:
     else:
         strain.append(strain[nr_steps-1] + out_freq*time_step[nr_steps-1])
 
-    print 'Step:', nr_steps, ', output step:', i, ', time step length:', time_step[nr_steps], \
-          ', total strain:', strain[nr_steps]
+    print('Step:', nr_steps, ', output step:', i, ', time step length:', time_step[nr_steps], \
+          ', total strain:', strain[nr_steps])
 
     # Compute viscosities from porosity
     shear_visc = physics.eta(phi, param)
@@ -276,7 +276,7 @@ while 1:
 for j in range(nr_steps):
 
     i = j*out_freq
-    print 'Integrals read for step', i,', strain', strain[j]
+    print('Integrals read for step', i,', strain', strain[j])
 
     # Integral files
     data_comp = "./output/radius_integral_compaction_rate_%s.txt" % (i)
@@ -449,7 +449,7 @@ for j, step in enumerate(plot_times):
 
 # Clean exit if plot times are all larger than max model time
 if len(plot_steps) < 2:
-   print 'No results to be plotted with selected output times.'
+   print('No results to be plotted with selected output times.')
    sys.exit()
 
 # List of colors to use
@@ -467,7 +467,7 @@ ax = plt.subplot(111)
 # Loop over steps to be plotted
 legend_list = []
 for k, step in enumerate(plot_steps):
-    print 'Plotting porosity integral at strain ', strain[int(step)]
+    print('Plotting porosity integral at strain ', strain[int(step)])
     plt.plot(x_array, phi_y_array[int(step),:], step_color[k])
     legend_text = r'$\gamma$ = ' + str(plot_times[k])
     legend_list.append(legend_text)
@@ -506,7 +506,7 @@ ax = plt.subplot(111)
 
 # Loop over steps to be plotted
 for k, step in enumerate(plot_steps):
-    print 'Plotting compaction rate integral at strain ', strain[int(step)]
+    print('Plotting compaction rate integral at strain ', strain[int(step)])
     plt.plot(x_array, comp_y_array[int(step),:], step_color[k])
 
 # Plot dotted black line at compaction rate = 0.0

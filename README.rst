@@ -6,10 +6,19 @@ This code computes advection and compaction in a porous medium under
 simple shear. There is an option to run with a regular rectangular mesh, 
 or with a mesh that has a circular torque-free inclusion.
 
+More details can be found in the paper:
+
+Alisic L., Rudge J.F., Katz R.F., Wells G.N., Rhebergen S.
+Compaction around a rigid, circular inclusion in partially molten rock (2014)
+J. Geophys. Res. Solid Earth 119:5903-5920
+http://dx.doi.org/10.1002/2013JB010906
+
 Running:
 ========
 run using:
-> python main.py param.cfg
+> python3 main.py param.cfg
+
+Requires: FEniCS 2019.1 (https://www.fenicsproject.org) and scipy
 
 Contents:
 =========
@@ -37,7 +46,3 @@ Creating meshes and initial porosity fields:
 * param_interpolate_initial_porosity.cfg : used by interpolate_initial_porosity.py
 * run_preprocessing.py : example of pre-processing workflow; adjust file paths as necessary.
 
-
-Note:
-=====
-This code was originally in version control in the fenics_magma repository, but has now been moved to its own repository.

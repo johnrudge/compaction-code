@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # Script main.py
@@ -55,7 +55,7 @@ def porosity_forms(V, phi0, u, dt):
     F = w*(phi1 - phi0 + dt*(dot(u, grad(phi_mid)) - (1.0 - phi_mid)*div(u)))*dx
 
     # SUPG stabilisation term
-    h_SUPG   = CellSize(mesh)
+    h_SUPG   = CellDiameter(mesh)
     residual = phi1 - phi0 + dt * (dot(u, grad(phi_mid)) - div(grad(phi_mid)))
     unorm    = sqrt(dot(u, u))
     aval     = 0.5*h_SUPG*unorm
@@ -100,12 +100,12 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
         tv = physics.traction(phi, q, v, param, W.mesh())
 
         # vector for velocity around cylinder
-        vcyl  = Expression(("-x[1]", "x[0]"))
+        vcyl  = Expression(("-x[1]", "x[0]"), degree = 1)
 
         # This is what we want to be zero on the cylinder
         u_dirichlet = u - omega*vcyl
 
-        h_nitsche   = CellSize(mesh)
+        h_nitsche   = CellDiameter(mesh)
 
         # Nitsche's method for v=omega cross x on cylinder
         F += ((nitsche_fac/h_nitsche)*dot(u_dirichlet, v) \
@@ -190,7 +190,7 @@ divU_out       = File(output_dir + "div_u." + extension)
 strain_rate_out = File(output_dir + "strain_rate." + extension)
 
 # MPI command needed for HDF5
-comm = mpi_comm_world()
+comm = MPI.comm_world
 
 # Output files for further postprocessing
 h5file_phi     = HDF5File(comm, "porosity.h5", "w")
@@ -198,14 +198,14 @@ h5file_vel     = HDF5File(comm, "velocity.h5", "w")
 h5file_pres    = HDF5File(comm, "pressure.h5", "w")
 
 # Initialise logfile
-logfile = open(logname, "w")
+logfile = open(logname, "w", encoding="utf-8")
 if MPI.rank(comm) == 0:
     logfile.write(str(datetime.datetime.now()))
 
 # Print params to logfile
 if MPI.rank(comm) == 0:
     logfile.write("\n\nRun parameters:\n")
-    for item in sorted(param.keys(), key=str.lower):
+    for item in sorted(list(param.keys()), key=str.lower):
         logfile.write("%s = %s\n" % (item, param[item]))
 
 # ======================================================================
@@ -214,7 +214,7 @@ if MPI.rank(comm) == 0:
 
 # Create mesh
 if read_mesh:
-    info("**** Reading mesh file: %s", meshfile)
+    info("**** Reading mesh file: %s" % meshfile)
     mesh = Mesh(meshfile)
 else:
     info("**** Generating mesh . . . ")
@@ -232,7 +232,7 @@ else:
         MPI.barrier(comm)
         mesh = Mesh(meshfile)
     else:
-        mesh = RectangleMesh(0, 0, aspect*height, height, \
+        mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
                                  int(aspect*el), int(el), meshtype)
 
 # Smallest element size. Used to determine time step
@@ -294,35 +294,42 @@ pbc = PeriodicBoundary(1.0e-6)
 # Function spaces
 # ======================================================================
 
+# Finite elements
+P2 = VectorElement("Lagrange", mesh.ufl_cell(), degree)
+P1 = FiniteElement("Lagrange", mesh.ufl_cell(), degree-1)
+RE = FiniteElement("Real", mesh.ufl_cell(), 0)
+
 # Define function spaces
 info("**** Defining function spaces")
 # Velocity
-V = VectorFunctionSpace(mesh, "Lagrange", degree, constrained_domain=pbc)
+V = FunctionSpace(mesh, P2, constrained_domain=pbc)
 
 # Pressure
-Q = FunctionSpace(mesh, "Lagrange", degree-1, constrained_domain=pbc)
+Q = FunctionSpace(mesh, P1, constrained_domain=pbc)
 
 # Porosity
-X = FunctionSpace(mesh, "Lagrange", degree-1, constrained_domain=pbc)
+X = FunctionSpace(mesh, P1, constrained_domain=pbc)
 
 # Create mixed function space
 if cylinder_mesh:
     # Lagrange multiplier for torque
-    #L = FunctionSpace(mesh, "Real", 0)
-    L = FunctionSpace(mesh, "Real", 0, constrained_domain=pbc)
+    #L = FunctionSpace(mesh, "Real", 0, constrained_domain=pbc)
+    L = FunctionSpace(mesh, RE)
     info("**** Creating mixed function space")
-    W = MixedFunctionSpace([V, Q, L])
+    TH = MixedElement([P2, P1, RE])
+    W = FunctionSpace(mesh, TH, constrained_domain=pbc)
 else:
-    W = MixedFunctionSpace([V, Q])
+    TH = MixedElement([P2, P1])
+    W = FunctionSpace(mesh, TH, constrained_domain=pbc)
 
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
 info("**** Defining h5 output function spaces")
 # Velocity
-Y = VectorFunctionSpace(mesh, "Lagrange", degree)
+Y = FunctionSpace(mesh, P2)
 
 # Pressure and porosity
-Z = FunctionSpace(mesh, "Lagrange", degree-1)
+Z = FunctionSpace(mesh, P1)
 
 # ======================================================================
 # Boundaries and boundary conditions
@@ -360,10 +367,10 @@ if cylinder_mesh:
 info("**** Setting boundary conditions . . . ")
 
 # vector for velocity on top boundary
-topv  = Expression((" 0.5*h",  "0.0"), h = height)
+topv  = Expression((" 0.5*h",  "0.0"), h = height, degree=1)
 
 # vector for velocity on bottom boundary
-bottomv   = Expression(("-0.5*h", "0.0"), h = height)
+bottomv   = Expression(("-0.5*h", "0.0"), h = height , degree=1)
 
 # Pinpoint for pressure
 pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
@@ -371,7 +378,8 @@ pinpoint = CompiledSubDomain(pin_str)
 
 if cylinder_mesh:
     # bit of surface around cylinder
-    ds_cylinder = ds[sub_domains](3)
+    dss = ds(subdomain_data=sub_domains)
+    ds_cylinder = dss(3)
 
 # Create boundary conditions
 
@@ -411,7 +419,7 @@ phi1 = Function(X)
 # ======================================================================
 
 # Time step. Use Expression to avoid form re-compilation
-dt = Expression("dt", dt=0.0)
+dt = Expression("dt", dt=0.0, degree = 1)
 
 # Get forms
 info("Getting porosity form")
@@ -443,7 +451,7 @@ info("**** Mean porosity = %g" % (mean_phi))
 
 # Define background velocity field due to the simple shear. This is
 # later used to determine velocity perturbations in solid and fluid.
-v_background = Expression(("x[1]", "0.0"))
+v_background = Expression(("x[1]", "0.0"), degree = 1)
 
 # Background velocity field
 v0 = Function(V)

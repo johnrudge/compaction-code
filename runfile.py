@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # ======================================================================
 # runfile.py
@@ -23,7 +23,7 @@ import os, sys
 
 #===========================================================================================
 
-run1 = 'python main.py param.cfg \
+run1 = 'python3 main.py param.cfg \
 --petsc.ksp_monitor_true_residual \
 --petsc.ksp_type bcgs \
 --petsc.pc_type fieldsplit \
@@ -39,7 +39,7 @@ run1 = 'python main.py param.cfg \
 --petsc.fieldsplit_1_ksp_type preonly \
 --petsc.fieldsplit_1_pc_type jacobi '
 
-run2 = 'python main.py param.cfg \
+run2 = 'python3 main.py param.cfg \
 --petsc.ksp_monitor_true_residual \
 --petsc.ksp_type bcgs \
 --petsc.pc_type fieldsplit \
