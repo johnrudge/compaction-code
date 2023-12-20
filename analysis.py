@@ -14,7 +14,7 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
+from dolfin import Function, project, MPI, Expression, File, norm, assemble, info, sin, cos, Constant, sqrt, div, errornorm, dx, exp
 import numpy, sys, math
 import scipy
 from scipy.special import kv, kvp  # Bessel functions and derivatives

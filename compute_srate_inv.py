@@ -16,7 +16,7 @@
 # Last modified: 26 June 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
+from dolfin import MPI, parameters, HDF5File, Mesh, VectorFunctionSpace, FunctionSpace, Identity, sym, grad, div, inner, project
 import numpy, sys, math
 import matplotlib as mpl
 mpl.use('pdf')

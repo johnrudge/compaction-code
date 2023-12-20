@@ -12,7 +12,6 @@
 # Last modified: 13 Sept 2013 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
 from string import Template
 import os
 import numpy, sys, math

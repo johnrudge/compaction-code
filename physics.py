@@ -14,7 +14,7 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
+from dolfin import MPI, sqrt, inner, FacetNormal, dot, Expression, assemble, FunctionSpace, sym, grad, exp, UserExpression, info
 import numpy, math, sys
 
 comm = MPI.comm_world

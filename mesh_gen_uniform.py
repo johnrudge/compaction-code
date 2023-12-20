@@ -11,7 +11,6 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
 from string import Template
 import os
 import numpy, sys, math

@@ -15,7 +15,7 @@
 # Last modified: 31 May 2013 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
+from dolfin import FunctionSpace, TestFunction, CellVolume, assemble, project, info, div, sqrt, dot, dx
 import math, sys, os, string
  
 # ======================================================================

@@ -35,7 +35,7 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import *
+from dolfin import TrialFunction, TestFunction, CellDiameter, TestFunctions, dot, div, dx, grad, split, Constant, parameters, MPI, SubDomain, VectorElement, FiniteElement, FunctionSpace, MixedElement, CompiledSubDomain, info, solve, File, HDF5File, RectangleMesh, Point, near, MeshFunction, Expression, DirichletBC, Function, sqrt, lhs, rhs, inner, sym, assemble, project, Matrix, Vector, LUSolver, Mesh
 import numpy, sys, math
 import core
 import physics
