@@ -14,13 +14,16 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import Function, project, MPI, Expression, File, norm, assemble, info, sin, cos, Constant, sqrt, div, errornorm, dx, exp
+# syntax change: from dolfin import info, errornorm, project, norm, File
+from mpi4py import MPI
+from dolfinx.fem import Expression, assemble, Constant, Function
+from ufl import sin, cos, sqrt, div, dx, exp
 import numpy, sys, math
 import scipy
 from scipy.special import kv, kvp  # Bessel functions and derivatives
 
 
-comm = MPI.comm_world
+comm = MPI.COMM_WORLD
 
 # ======================================================================
 

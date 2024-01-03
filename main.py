@@ -35,7 +35,16 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import TrialFunction, TestFunction, CellDiameter, TestFunctions, dot, div, dx, grad, split, Constant, parameters, MPI, SubDomain, VectorElement, FiniteElement, FunctionSpace, MixedElement, CompiledSubDomain, info, solve, File, HDF5File, RectangleMesh, Point, near, MeshFunction, Expression, DirichletBC, Function, sqrt, lhs, rhs, inner, sym, assemble, project, Matrix, Vector, LUSolver, Mesh
+# syntax change: from dolfin import DirichletBC, RectangleMesh, parameters
+# syntax change: from dolfin import Matrix, Vector, LUSolver, SubDomain, CompiledSubDomain
+# syntax change: from dolfin import near, info, solve,  project
+# syntax change: from dolfin import MeshFunction, Mesh, Point
+# syntax change: from dolfin import HDF5File, File
+from mpi4py import MPI
+from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace,   Expression, assemble
+from dolfinx.mesh import create_rectangle
+from dolfinx.la import MatrixCSR, Vector
+from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
 import numpy, sys, math
 import core
 import physics
@@ -44,8 +53,8 @@ import mesh_gen
 import mesh_gen_uniform
 import datetime
 
-parameters["form_compiler"]["cpp_optimize"] = True
-parameters["form_compiler"]["optimize"] = True
+#parameters["form_compiler"]["cpp_optimize"] = True
+#parameters["form_compiler"]["optimize"] = True
 
 def porosity_forms(V, phi0, u, dt):
     """Return forms for porosity transport"""

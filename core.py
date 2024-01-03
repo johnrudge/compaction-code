@@ -15,7 +15,9 @@
 # Last modified: 31 May 2013 by Laura Alisic
 # ======================================================================
 
-from dolfin import FunctionSpace, TestFunction, CellVolume, assemble, project, info, div, sqrt, dot, dx
+# syntax change: from dolfin import info, project
+from dolfinx.fem import FunctionSpace, assemble
+from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split
 import math, sys, os, string
  
 # ======================================================================

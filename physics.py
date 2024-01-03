@@ -14,10 +14,13 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from dolfin import MPI, sqrt, inner, FacetNormal, dot, Expression, assemble, FunctionSpace, sym, grad, exp, UserExpression, info
+from mpi4py import MPI
+# syntax change: from dolfin import info, UserExpression, 
+from ufl import sqrt, inner, FacetNormal, dot, sym, grad, exp
+from dolfinx.fem import Expression, assemble, FunctionSpace
 import numpy, math, sys
 
-comm = MPI.comm_world
+comm = MPI.COMM_WORLD
 
 # ======================================================================
 
