@@ -31,7 +31,7 @@ comm = MPI.COMM_WORLD
 def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfile):
     """Computation of analytical compaction rate around cylinder"""
 
-    info("**** Computing analytical compaction ...")
+    print("**** Computing analytical compaction ...")
 
     radius  = param['radius']
     R       = param['R']
@@ -66,7 +66,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     F_field = project(F_val, Q)
 
     # Compute analytical solution for velocity
-    info("    Velocity ...")
+    print("    Velocity ...")
     class VSolution(Expression):
         """Compute analytical solution for velocity"""
 
@@ -102,7 +102,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     analytical_u.interpolate(velocity_solution)
 
     # Compute analytical solution for pressure
-    info("    Pressure ...")
+    print("    Pressure ...")
     class PSolution(Expression):
         """Compute analytical solution for pressure"""
 
@@ -127,7 +127,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     analytical_p.interpolate(pressure_solution)
 
     # Analytical compaction rate
-    info("    Compaction rate ...")
+    print("    Compaction rate ...")
     class Compaction(Expression):
         """Compute analytical solution for compaction rate"""
 
@@ -170,16 +170,16 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     div_u = project(div(u), Q)
 
     # Compute error measures
-    info("**** Computing error measures ...")
+    print("**** Computing error measures ...")
 
     # Pressure error
     mean_p      = assemble(p*dx)/(aspect*height*height - math.pi*radius**2)
-    info("     Mean numerical pressure is %g" % (mean_p))
+    print("     Mean numerical pressure is %g" % (mean_p))
     shifted_p   = project(p - mean_p, Q)
     analyt_norm = norm(analytical_p)
     num_norm    = norm(shifted_p)
     error_p     = (errornorm(analytical_p, shifted_p)) / analyt_norm
-    info("     Pressure L2 norms: analytical %g, numerical %g, error %g" \
+    print("     Pressure L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_p))
     if MPI.rank(comm) == 0:
         logfile.write("Pressure L2 norms: analytical %g, numerical %g, error %g\n" \
@@ -189,7 +189,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     analyt_norm = norm(analytical_u)
     num_norm    = norm(u)
     error_u     = (errornorm(analytical_u, u)) / analyt_norm
-    info("     Velocity L2 norms: analytical %g, numerical %g, error %g" \
+    print("     Velocity L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_u))
     if MPI.rank(comm) == 0:
         logfile.write("Velocity L2 norms: analytical %g, numerical %g, error %g\n" \
@@ -199,7 +199,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
     analyt_norm = norm(analytical_comp)
     num_norm    = norm(div_u)
     error_c     = (errornorm(analytical_comp, div_u)) / analyt_norm
-    info("     Compaction rate L2 norms: analytical %g, numerical %g, error %g" \
+    print("     Compaction rate L2 norms: analytical %g, numerical %g, error %g" \
          % (analyt_norm, num_norm, error_c))
     if MPI.rank(comm) == 0:
         logfile.write("Compaction rate L2 norms: analytical %g, numerical %g, error %g\n" \
@@ -210,7 +210,7 @@ def compaction_cylinder_analysis(Q, V, u, p, shear_visc, bulk_visc, param, logfi
 def cylinder_integrals(field, name, param, timestep):
     """Computation of scaled integrals around the cylinder"""
 
-    info("**** Computing %s integrals ..." % (name))
+    print("**** Computing %s integrals ..." % (name))
 
     # Output files
     radius_integral_file = "./output/radius_integral_%s_%s.txt" % (name, timestep)
@@ -299,7 +299,7 @@ def cylinder_integrals(field, name, param, timestep):
 def cylinder_integrals_slice(field, name, param, timestep):
     """Computation of scaled integrals around a sphere, on a 2-D slice"""
 
-    info("**** Computing %s integrals ..." % (name))
+    print("**** Computing %s integrals ..." % (name))
 
     # Output files
     radius_integral_file = "./output/radius_integral_%s_%s.txt" % (name, timestep)
@@ -393,7 +393,7 @@ def cylinder_integrals_slice(field, name, param, timestep):
 def plane_wave_analysis(Q, u, t, param, logfile):
     """Comparison of analytical and numerical growth rate of planar shear bands"""
 
-    info("**** Computing diagnostics ...")
+    print("**** Computing diagnostics ...")
 
     phiB      = param['phiB']
     rzeta     = param['rzeta']
@@ -446,17 +446,17 @@ def plane_wave_analysis(Q, u, t, param, logfile):
     # Compute analytical amplitude
     A_t = exp(s_t)
 
-    info("t = %f: angle(t) = %f; k(t) = %f; s(t) = %f; A(t) = %f" \
+    print("t = %f: angle(t) = %f; k(t) = %f; s(t) = %f; A(t) = %f" \
          % (t, angle_deg, k_t, s_t, A_t))
     if (MPI.rank(comm) == 0):
         logfile.write("t = %f: angle(t) = %f; k(t) = %f; s(t) = %f; A(t) = %f\n" \
                       % (t, angle_deg, k_t, s_t, A_t))
-    info("ds_dt(t) (Spiegelman 2003)   = %f; num_ds_dt(t) = %f; rel_error = %f" \
+    print("ds_dt(t) (Spiegelman 2003)   = %f; num_ds_dt(t) = %f; rel_error = %f" \
          % (ds_dt_S03, ds_dt, ds_dt_error_S03))
     if (MPI.rank(comm) == 0):
         logfile.write("ds_dt(t) (Spiegelman 2003)   = %f; num_ds_dt(t) = %f; rel_error = %f\n" \
                       % (ds_dt_S03, ds_dt, ds_dt_error_S03))
-    info("ds_dt(t) (Takei & Katz subm.) = %f; num_ds_dt(t) = %f; rel_error = %f" \
+    print("ds_dt(t) (Takei & Katz subm.) = %f; num_ds_dt(t) = %f; rel_error = %f" \
          % (ds_dt_T12, ds_dt, ds_dt_error_T12))
     if (MPI.rank(comm) == 0):
         logfile.write("ds_dt(t) (Takei & Katz subm.) = %f; num_ds_dt(t) = %f; rel_error = %f\n" \

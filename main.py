@@ -127,10 +127,10 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
     return F
 
 # Write output to process 0 only
-parameters["std_out_all_processes"] = False
+#parameters["std_out_all_processes"] = False
 
 # Needed for interpolating fields without throwing an error
-parameters['allow_extrapolation'] = True
+#parameters['allow_extrapolation'] = True
 
 # Log level
 #set_log_level(DEBUG)
@@ -223,10 +223,10 @@ if MPI.rank(comm) == 0:
 
 # Create mesh
 if read_mesh:
-    info("**** Reading mesh file: %s" % meshfile)
+    print("**** Reading mesh file: %s" % meshfile)
     mesh = Mesh(meshfile)
 else:
-    info("**** Generating mesh . . . ")
+    print("**** Generating mesh . . . ")
     if cylinder_mesh:
 
         # Create a mesh with gmsh
@@ -249,12 +249,12 @@ h_min = MPI.min(comm, mesh.hmin())
 h_max = MPI.max(comm, mesh.hmax())
 
 # Minimum and maximum element size
-info("hmin = %g, hmax = %g" % (h_min, h_max))
+print("hmin = %g, hmax = %g" % (h_min, h_max))
 if MPI.rank(comm) == 0:
     logfile.write("\n\nMesh: hmin = %g, hmax = %g\n" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
-info("**** Shifting mesh")
+print("**** Shifting mesh")
 for x in mesh.coordinates():
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
@@ -309,7 +309,7 @@ P1 = FiniteElement("Lagrange", mesh.ufl_cell(), degree-1)
 RE = FiniteElement("Real", mesh.ufl_cell(), 0)
 
 # Define function spaces
-info("**** Defining function spaces")
+print("**** Defining function spaces")
 # Velocity
 V = FunctionSpace(mesh, P2, constrained_domain=pbc)
 
@@ -324,7 +324,7 @@ if cylinder_mesh:
     # Lagrange multiplier for torque
     #L = FunctionSpace(mesh, "Real", 0, constrained_domain=pbc)
     L = FunctionSpace(mesh, RE)
-    info("**** Creating mixed function space")
+    print("**** Creating mixed function space")
     TH = MixedElement([P2, P1, RE])
     W = FunctionSpace(mesh, TH, constrained_domain=pbc)
 else:
@@ -333,7 +333,7 @@ else:
 
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
-info("**** Defining h5 output function spaces")
+print("**** Defining h5 output function spaces")
 # Velocity
 Y = FunctionSpace(mesh, P2)
 
@@ -345,7 +345,7 @@ Z = FunctionSpace(mesh, P1)
 # ======================================================================
 
 # Define and mark boundaries
-info("**** Defining boundaries . . . ")
+print("**** Defining boundaries . . . ")
 
 # Holder for domain markers
 sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
@@ -373,7 +373,7 @@ if cylinder_mesh:
     cylinder.mark(sub_domains, 3) # mark cylinder boundary as 3
 
 # Create boundary condition functions
-info("**** Setting boundary conditions . . . ")
+print("**** Setting boundary conditions . . . ")
 
 # vector for velocity on top boundary
 topv  = Expression((" 0.5*h",  "0.0"), h = height, degree=1)
@@ -431,9 +431,9 @@ phi1 = Function(X)
 dt = Expression("dt", dt=0.0, degree = 1)
 
 # Get forms
-info("Getting porosity form")
+print("Getting porosity form")
 a_phi, L_phi = porosity_forms(X, phi0, u, dt)
-info("Getting Stokes form")
+print("Getting Stokes form")
 #a_stokes, L_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 #a_stokes = lhs(F_stokes)
@@ -444,7 +444,7 @@ F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 # ======================================================================
 
 # Set initial porosity field
-info("**** Defining initial porosity field ...")
+print("**** Defining initial porosity field ...")
 
 # Interpolate initial porosity
 phi_init = physics.initial_porosity(param, X)
@@ -456,7 +456,7 @@ if cylinder_mesh:
     mean_phi = assemble(phi0*dx)/(aspect*height*height - math.pi*radius**2)
 else:
     mean_phi = assemble(phi0*dx)/(aspect*height*height)
-info("**** Mean porosity = %g" % (mean_phi))
+print("**** Mean porosity = %g" % (mean_phi))
 
 # Define background velocity field due to the simple shear. This is
 # later used to determine velocity perturbations in solid and fluid.
@@ -468,12 +468,12 @@ v0.interpolate(v_background)
 
 # Initial velocity field
 # Solve nonlinear Stokes-type system
-info("Solving initial Stokes field")
+print("Solving initial Stokes field")
 # FIXME: Solve fails with the error 'All terms in form must have same rank.'
 #solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
 solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
                               solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
-info("Finished solving initial Stokes field")
+print("Finished solving initial Stokes field")
 
 # Calculate the torque and deviation from rigid body rotation - both
 # should be zero
@@ -533,8 +533,8 @@ MPI.barrier(comm)
 # Set time step
 dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
 
-info("initial dt = %g \n" % dt.dt)
-info("-------------------------------\n")
+print("initial dt = %g \n" % dt.dt)
+print("-------------------------------\n")
 
 # ======================================================================
 #  Time loop
@@ -565,13 +565,13 @@ while (t < tmax):
     if t < tmax and t + dt.dt > tmax:
         dt.dt = tmax - t
 
-    info("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
+    print("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
     if MPI.rank(comm) == 0:
         logfile.write("\nTime step %d: t = %g\n" % (tcount, t + dt.dt))
 
     # Solve for U_n+1 and phi_n+1
     # Compute U and phi1, and update phi0 <- phi1
-    info("**** t = %g: Solve phi and U" % t)
+    print("**** t = %g: Solve phi and U" % t)
 
     # Assemble system for porosity advection
     ffc_parameters = dict(quadrature_degree=3, optimize=True)
@@ -584,7 +584,7 @@ while (t < tmax):
 
     # Solve linear porosity advection system
     solver_phi.solve(phi1.vector(), b_phi)
-    info("Phi vector norms: %g, %g" \
+    print("Phi vector norms: %g, %g" \
              % (phi1.vector().norm("l2"), b_phi.norm("l2")))
     if MPI.rank(comm) == 0:
         logfile.write("Phi vector norms: %g, %g\n" \
@@ -608,9 +608,9 @@ while (t < tmax):
     #    bc.apply(A_stokes, b_stokes)
 
     # Solve linear Stokes-type system
-    info("Solving Stokes problem")
+    print("Solving Stokes problem")
     #solver_U.solve(U.vector(), b_stokes)
-    #info("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
+    #print("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
     #if MPI.rank(comm) == 0:
     #    logfile.write("U vector norms: %g, %g\n" \
     #                      % (U.vector().norm("l2"), b_stokes.norm("l2")))
@@ -664,8 +664,8 @@ while (t < tmax):
     # Compute new time step
     dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
 
-    info("**** New time step dt = %g\n" % dt.dt)
-    info("-------------------------------\n")
+    print("**** New time step dt = %g\n" % dt.dt)
+    print("-------------------------------\n")
 
     t      += dt.dt
     tcount += 1

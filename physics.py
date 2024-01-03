@@ -164,12 +164,12 @@ def print_cylinder_diagnostics(phi, p, u, omega, param, mesh, ds_cylinder, logfi
     comm = MPI.comm_world
 
     total_torque = assemble(torque(phi, p, u, param, mesh, ds_cylinder))
-    info("**** Torque in numerical solution = %g" % total_torque)
+    print("**** Torque in numerical solution = %g" % total_torque)
     if MPI.rank(comm) == 0:
         logfile.write("Torque in numerical solution = %g\n" % total_torque)
 
     total_rigid_rotation_error = calculate_rigid_rotation_error(u, omega, ds_cylinder)
-    info("**** Rigid body rotation error in numerical solution = %g" % total_rigid_rotation_error)
+    print("**** Rigid body rotation error in numerical solution = %g" % total_rigid_rotation_error)
     if MPI.rank(comm) == 0:
         logfile.write("Rigid body rotation error in numerical solution = %g\n" % total_rigid_rotation_error)
 
@@ -178,7 +178,7 @@ def print_cylinder_diagnostics(phi, p, u, omega, param, mesh, ds_cylinder, logfi
     #rotation = get_rotation_rate(omega, mesh)
     #MPI.barrier(comm)
     #if MPI.rank(comm) == 0:
-    #    info("**** Rotation rate of cylinder = %g" % rotation)
+    #    print("**** Rotation rate of cylinder = %g" % rotation)
     #    logfile.write("Rotation rate of cylinder = %g\n" % rotation)
     #MPI.barrier(comm)
 
@@ -299,14 +299,14 @@ def check_phi(phi, logfile):
 
     phi_min = phi.vector().min()
     phi_max = phi.vector().max()
-    info("**** Minimum porosity = %g" % (phi_min))
-    info("**** Maximum porosity = %g" % (phi_max))
+    print("**** Minimum porosity = %g" % (phi_min))
+    print("**** Maximum porosity = %g" % (phi_max))
 
     if MPI.rank(comm) == 0:
         logfile.write("Minimum porosity = %g; maximum porosity = %g\n" % (phi_min, phi_max))
 
     if phi_min < 0.0 or phi_max > 1.0:
-        info("**** Porosity out of bounds --- EXITING\n")
+        print("**** Porosity out of bounds --- EXITING\n")
         if MPI.rank(comm) == 0:
             logfile.write("Porosity out of bounds --- EXITING\n")
             logfile.write("\nEOF\n")

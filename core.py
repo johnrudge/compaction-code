@@ -108,7 +108,7 @@ def parse_param_file(filename):
         # (i.e., integer, float, or string)
         val = int_float_string(val)
 
-        info('Parsing %s: %s = %s' % (filename, key, val))
+        print('Parsing %s: %s = %s' % (filename, key, val))
 
         # Store as key val pair
         settings[key] = val
