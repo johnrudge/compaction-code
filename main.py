@@ -44,6 +44,7 @@ from mpi4py import MPI
 from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace,   Expression, assemble
 from dolfinx.mesh import create_rectangle
 from dolfinx.la import MatrixCSR, Vector
+from dolfinx.io import XDMFFile
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
 import numpy, sys, math
 import core
@@ -182,37 +183,38 @@ tmax      = param['tmax']
 cfl       = param['cfl']
 dt        = param['dt']
 
+# MPI command needed for HDF5
+comm = MPI.COMM_WORLD
+
 # Output files for quick visualisation
 output_dir     = "output/"
-extension      = "pvd"   # "xdmf" or "pvd"
-initial_porosity_out = File(output_dir + "initial_porosity." + extension)
-velocity_out   = File(output_dir + "velocity." + extension)
-vel_pert_out   = File(output_dir + "velocity_perturbations." + extension)
-pressure_out   = File(output_dir + "pressure." + extension)
-porosity_out   = File(output_dir + "porosity." + extension)
-shear_visc_out = File(output_dir + "shear_viscosity." + extension)
-bulk_visc_out  = File(output_dir + "bulk_viscosity." + extension)
-perm_out       = File(output_dir + "permeability." + extension)
-compaction_out = File(output_dir + "compaction." + extension)
-num_ds_dt_out  = File(output_dir + "ds_dt." + extension)
-divU_out       = File(output_dir + "div_u." + extension)
-strain_rate_out = File(output_dir + "strain_rate." + extension)
+extension      = "xdmf"   # "xdmf"
+initial_porosity_out = XDMFFile(comm, output_dir + "initial_porosity." + extension, "w")
+velocity_out   = XDMFFile(comm, output_dir + "velocity." + extension, "w")
+vel_pert_out   = XDMFFile(comm, output_dir + "velocity_perturbations." + extension, "w")
+pressure_out   = XDMFFile(comm, output_dir + "pressure." + extension, "w")
+porosity_out   = XDMFFile(comm, output_dir + "porosity." + extension, "w")
+shear_visc_out = XDMFFile(comm, output_dir + "shear_viscosity." + extension, "w")
+bulk_visc_out  = XDMFFile(comm, output_dir + "bulk_viscosity." + extension, "w")
+perm_out       = XDMFFile(comm, output_dir + "permeability." + extension, "w")
+compaction_out = XDMFFile(comm, output_dir + "compaction." + extension, "w")
+num_ds_dt_out  = XDMFFile(comm, output_dir + "ds_dt." + extension, "w")
+divU_out       = XDMFFile(comm, output_dir + "div_u." + extension, "w")
+strain_rate_out = XDMFFile(comm, output_dir + "strain_rate." + extension, "w")
 
-# MPI command needed for HDF5
-comm = MPI.comm_world
-
-# Output files for further postprocessing
-h5file_phi     = HDF5File(comm, "porosity.h5", "w")
-h5file_vel     = HDF5File(comm, "velocity.h5", "w")
-h5file_pres    = HDF5File(comm, "pressure.h5", "w")
+## Output files for further postprocessing
+#h5file_phi     = HDF5File(comm, "porosity.h5", "w")
+#h5file_vel     = HDF5File(comm, "velocity.h5", "w")
+#h5file_pres    = HDF5File(comm, "pressure.h5", "w")
 
 # Initialise logfile
 logfile = open(logname, "w", encoding="utf-8")
-if MPI.rank(comm) == 0:
+rank = comm.Get_rank()
+if rank == 0:
     logfile.write(str(datetime.datetime.now()))
 
 # Print params to logfile
-if MPI.rank(comm) == 0:
+if rank == 0:
     logfile.write("\n\nRun parameters:\n")
     for item in sorted(list(param.keys()), key=str.lower):
         logfile.write("%s = %s\n" % (item, param[item]))
@@ -495,20 +497,20 @@ core.write_vtk(Q, p, phi0, u, v0, shear_visc, bulk_visc, perm, srate, \
 # Porosity
 phi = Function(Z)
 phi.interpolate(phi0)
-h5file_phi.write(phi, "porosity_%d" % 0)
-h5file_phi.write(mesh, "mesh_file")
+#h5file_phi.write(phi, "porosity_%d" % 0)
+#h5file_phi.write(mesh, "mesh_file")
 
 # Velocity
 vel = Function(Y)
 vel.interpolate(project(u))
-h5file_vel.write(vel, "velocity_%d" % 0)
-h5file_vel.write(mesh, "mesh_file")
+#h5file_vel.write(vel, "velocity_%d" % 0)
+#h5file_vel.write(mesh, "mesh_file")
 
 # Pressure
 pres = Function(Z)
 pres.interpolate(project(p))
-h5file_pres.write(pres, "pressure_%d" % 0)
-h5file_pres.write(mesh, "mesh_file")
+#h5file_pres.write(pres, "pressure_%d" % 0)
+#h5file_pres.write(mesh, "mesh_file")
 
 if MPI.rank(comm) == 0:
     logfile.write("\nTime step 0: t = 0\n")
