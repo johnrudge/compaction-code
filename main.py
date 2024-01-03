@@ -41,10 +41,11 @@
 # syntax change: from dolfin import MeshFunction, Mesh, Point
 # syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
-from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace,   Expression, assemble
+from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, assemble
 from dolfinx.mesh import create_rectangle
 from dolfinx.la import MatrixCSR, Vector
 from dolfinx.io import XDMFFile
+from dolfinx_mpc import LinearProblem, MultiPointConstraint
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
 import numpy, sys, math
 import core
@@ -243,21 +244,36 @@ else:
         MPI.barrier(comm)
         mesh = Mesh(meshfile)
     else:
-        mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
-                                 int(aspect*el), int(el), meshtype)
+        #mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
+        #                         int(aspect*el), int(el), meshtype)
+        import numpy as np
+        mesh = create_rectangle(comm, \
+                        [np.array([0, 0]), np.array([aspect*height, height])], \
+                        [int(aspect*el), int(el)])
+        # JR - ignore meshtype with dolfinx syntax for now
+        
 
 # Smallest element size. Used to determine time step
-h_min = MPI.min(comm, mesh.hmin())
-h_max = MPI.max(comm, mesh.hmax())
+#h_min = MPI.min(comm, mesh.hmin())
+#h_max = MPI.max(comm, mesh.hmax())
+# JR - syntax change
+# mesh properties
+tdim = mesh.topology.dim
+fdim = tdim-1
+num_cells = mesh.topology.index_map(tdim).size_local    # number of cells in the mesh
+h = mesh.h(tdim, range(num_cells)) # get the cell size h
+h_min = min(h)
+h_max = max(h)
 
 # Minimum and maximum element size
 print("hmin = %g, hmax = %g" % (h_min, h_max))
-if MPI.rank(comm) == 0:
+if rank == 0:
     logfile.write("\n\nMesh: hmin = %g, hmax = %g\n" % (h_min, h_max))
 
 # Shift mesh such that the center is at the origin
 print("**** Shifting mesh")
-for x in mesh.coordinates():
+#for x in mesh.coordinates():
+for x in mesh.geometry.x:
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
 
@@ -280,23 +296,33 @@ for x in mesh.coordinates():
         else:
             x[1] = int(x[1] * precision - 0.5) / precision
 
-# Subdomain for periodic boundary condition (left and right boundaries)
-class PeriodicBoundary(SubDomain):
-    """Define periodic boundaries"""
-    def __init__(self, tol):
-        SubDomain.__init__(self, tol)
+## Subdomain for periodic boundary condition (left and right boundaries)
+#class PeriodicBoundary(SubDomain):
+    #"""Define periodic boundaries"""
+    #def __init__(self, tol):
+        #SubDomain.__init__(self, tol)
 
-    def inside(self, x, on_boundary):
-        return on_boundary and near(x[0],-0.5*height*aspect, 1.0e-11)
+    #def inside(self, x, on_boundary):
+        #return on_boundary and near(x[0],-0.5*height*aspect, 1.0e-11)
 
-    def map(self, x, y):
-        """Map slave entity to master entity"""
-        y[0] = x[0] - height*aspect
-        y[1] = x[1]
+    #def map(self, x, y):
+        #"""Map slave entity to master entity"""
+        #y[0] = x[0] - height*aspect
+        #y[1] = x[1]
 
-# Create an object to prevect director going out of scope. Might fix
-# later.
-pbc = PeriodicBoundary(1.0e-6)
+def periodic_boundary(x):
+    return np.isclose(x[0], -0.5*height*aspect, 1.0e-11)
+
+def periodic_relation(x):
+    y = np.zeros_like(x)
+    y[0] = x[0] - height*aspect
+    y[1] = x[1]
+    return y
+
+
+## Create an object to prevect director going out of scope. Might fix
+## later.
+#pbc = PeriodicBoundary(1.0e-6)
 
 #mf = PeriodicBoundaryComputation.masters_slaves(mesh, pbc, 1)
 #File("periodic_boundaries.xdmf") << mf
@@ -310,37 +336,41 @@ P2 = VectorElement("Lagrange", mesh.ufl_cell(), degree)
 P1 = FiniteElement("Lagrange", mesh.ufl_cell(), degree-1)
 RE = FiniteElement("Real", mesh.ufl_cell(), 0)
 
+    # JR -- need to reimplement periodic bcs
+    #mpc = MultiPointConstraint(V)
+    #mpc.create_periodic_constraint_geometrical(V, periodic_boundary, periodic_relation, bcs)
+    #mpc.finalize()
+
 # Define function spaces
 print("**** Defining function spaces")
 # Velocity
-V = FunctionSpace(mesh, P2, constrained_domain=pbc)
+V = functionspace(mesh, P2)
 
 # Pressure
-Q = FunctionSpace(mesh, P1, constrained_domain=pbc)
+Q = functionspace(mesh, P1)
 
 # Porosity
-X = FunctionSpace(mesh, P1, constrained_domain=pbc)
+X = functionspace(mesh, P1)
 
 # Create mixed function space
 if cylinder_mesh:
     # Lagrange multiplier for torque
-    #L = FunctionSpace(mesh, "Real", 0, constrained_domain=pbc)
-    L = FunctionSpace(mesh, RE)
+    L = functionspace(mesh, RE)
     print("**** Creating mixed function space")
     TH = MixedElement([P2, P1, RE])
-    W = FunctionSpace(mesh, TH, constrained_domain=pbc)
+    W = functionspace(mesh, TH)
 else:
     TH = MixedElement([P2, P1])
-    W = FunctionSpace(mesh, TH, constrained_domain=pbc)
+    W = functionspace(mesh, TH)
 
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
 print("**** Defining h5 output function spaces")
 # Velocity
-Y = FunctionSpace(mesh, P2)
+Y = functionspace(mesh, P2)
 
 # Pressure and porosity
-Z = FunctionSpace(mesh, P1)
+Z = functionspace(mesh, P1)
 
 # ======================================================================
 # Boundaries and boundary conditions
