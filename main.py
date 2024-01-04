@@ -41,7 +41,8 @@
 # syntax change: from dolfin import MeshFunction, Mesh, Point
 # syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
-from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, assemble, locate_dofs_geometrical, locate_dofs_topological
+from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, locate_dofs_geometrical, locate_dofs_topological, form
+from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
 from dolfinx.io import XDMFFile
@@ -514,18 +515,21 @@ print("**** Defining initial porosity field ...")
 # Interpolate initial porosity
 phi_init = physics.initial_porosity(param, X)
 phi0.interpolate(phi_init)
-initial_porosity_out << phi0
+initial_porosity_out.write_mesh(mesh)
+initial_porosity_out.write_function(phi0)
 
 # Compute initial mean porosity
 if cylinder_mesh:
-    mean_phi = assemble(phi0*dx)/(aspect*height*height - math.pi*radius**2)
+    mean_phi = assemble_scalar(form(phi0*dx))/(aspect*height*height - math.pi*radius**2)
 else:
-    mean_phi = assemble(phi0*dx)/(aspect*height*height)
+    mean_phi = assemble_scalar(form(phi0*dx))/(aspect*height*height)
 print("**** Mean porosity = %g" % (mean_phi))
 
 # Define background velocity field due to the simple shear. This is
 # later used to determine velocity perturbations in solid and fluid.
-v_background = Expression(("x[1]", "0.0"), degree = 1)
+#v_background = Expression(("x[1]", "0.0"), degree = 1)
+def v_background(x):
+    return np.stack((x[1,:], np.zeros(x.shape[1])))    
 
 # Background velocity field
 v0 = Function(V)
