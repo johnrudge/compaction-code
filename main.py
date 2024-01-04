@@ -45,8 +45,10 @@ from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expres
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
-from dolfinx.io import XDMFFile
-from dolfinx_mpc import LinearProblem, MultiPointConstraint
+from dolfinx.io import VTKFile
+#from dolfinx_mpc import LinearProblem, MultiPointConstraint, NonLinearProblem
+from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.nls.petsc import NewtonSolver
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
 import numpy, sys, math
 import core
@@ -190,19 +192,19 @@ comm = MPI.COMM_WORLD
 
 # Output files for quick visualisation
 output_dir     = "output/"
-extension      = "xdmf"   # "xdmf"
-initial_porosity_out = XDMFFile(comm, output_dir + "initial_porosity." + extension, "w")
-velocity_out   = XDMFFile(comm, output_dir + "velocity." + extension, "w")
-vel_pert_out   = XDMFFile(comm, output_dir + "velocity_perturbations." + extension, "w")
-pressure_out   = XDMFFile(comm, output_dir + "pressure." + extension, "w")
-porosity_out   = XDMFFile(comm, output_dir + "porosity." + extension, "w")
-shear_visc_out = XDMFFile(comm, output_dir + "shear_viscosity." + extension, "w")
-bulk_visc_out  = XDMFFile(comm, output_dir + "bulk_viscosity." + extension, "w")
-perm_out       = XDMFFile(comm, output_dir + "permeability." + extension, "w")
-compaction_out = XDMFFile(comm, output_dir + "compaction." + extension, "w")
-num_ds_dt_out  = XDMFFile(comm, output_dir + "ds_dt." + extension, "w")
-divU_out       = XDMFFile(comm, output_dir + "div_u." + extension, "w")
-strain_rate_out = XDMFFile(comm, output_dir + "strain_rate." + extension, "w")
+extension      = "pvd"   # "pvd"
+initial_porosity_out = VTKFile(comm, output_dir + "initial_porosity." + extension, "w")
+velocity_out   = VTKFile(comm, output_dir + "velocity." + extension, "w")
+vel_pert_out   = VTKFile(comm, output_dir + "velocity_perturbations." + extension, "w")
+pressure_out   = VTKFile(comm, output_dir + "pressure." + extension, "w")
+porosity_out   = VTKFile(comm, output_dir + "porosity." + extension, "w")
+shear_visc_out = VTKFile(comm, output_dir + "shear_viscosity." + extension, "w")
+bulk_visc_out  = VTKFile(comm, output_dir + "bulk_viscosity." + extension, "w")
+perm_out       = VTKFile(comm, output_dir + "permeability." + extension, "w")
+compaction_out = VTKFile(comm, output_dir + "compaction." + extension, "w")
+num_ds_dt_out  = VTKFile(comm, output_dir + "ds_dt." + extension, "w")
+divU_out       = VTKFile(comm, output_dir + "div_u." + extension, "w")
+strain_rate_out = VTKFile(comm, output_dir + "strain_rate." + extension, "w")
 
 ## Output files for further postprocessing
 #h5file_phi     = HDF5File(comm, "porosity.h5", "w")
@@ -515,8 +517,10 @@ print("**** Defining initial porosity field ...")
 # Interpolate initial porosity
 phi_init = physics.initial_porosity(param, X)
 phi0.interpolate(phi_init)
-initial_porosity_out.write_mesh(mesh)
+#initial_porosity_out.write_mesh(mesh)
+#initial_porosity_out.write_function(phi0)
 initial_porosity_out.write_function(phi0)
+initial_porosity_out.close()
 
 # Compute initial mean porosity
 if cylinder_mesh:
@@ -540,8 +544,15 @@ v0.interpolate(v_background)
 print("Solving initial Stokes field")
 # FIXME: Solve fails with the error 'All terms in form must have same rank.'
 #solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
-solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
-                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
+stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
+stokes_solver = NewtonSolver(comm, stokes_problem)
+stokes_solver.report = True
+stokes_solver.rtol = 1e-3
+stokes_solver.solve(U)
+
+#solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
+#                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
+
 print("Finished solving initial Stokes field")
 
 # Calculate the torque and deviation from rigid body rotation - both
