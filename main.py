@@ -41,8 +41,8 @@
 # syntax change: from dolfin import MeshFunction, Mesh, Point
 # syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
-from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, assemble
-from dolfinx.mesh import create_rectangle
+from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, assemble, locate_dofs_geometrical, locate_dofs_topological
+from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
 from dolfinx.io import XDMFFile
 from dolfinx_mpc import LinearProblem, MultiPointConstraint
@@ -380,17 +380,29 @@ Z = functionspace(mesh, P1)
 print("**** Defining boundaries . . . ")
 
 # Holder for domain markers
-sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+#sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
+
 
 # Mark bottom boundary as 1
-bottom = CompiledSubDomain("x[1] < (-0.5*height + DOLFIN_EPS) && \
-                             on_boundary".replace("height", str(height)))
-bottom.mark(sub_domains, 1)
+#bottom = CompiledSubDomain("x[1] < (-0.5*height + DOLFIN_EPS) && \
+#                             on_boundary".replace("height", str(height)))
+def on_bottom(x):
+    return np.isclose(x[1], -0.5*height)
+bottom_facets = locate_entities_boundary(mesh, fdim, on_bottom)
+
+#bottom.mark(sub_domains, 1)
 
 # Mark top boundary as 2
-top = CompiledSubDomain("x[1] > ( 0.5*height - DOLFIN_EPS) && \
-                          on_boundary".replace("height", str(height)))
-top.mark(sub_domains, 2)
+#top = CompiledSubDomain("x[1] > ( 0.5*height - DOLFIN_EPS) && \
+#                          on_boundary".replace("height", str(height)))
+def on_top(x):
+    return np.isclose(x[1], 0.5*height)
+top_facets = locate_entities_boundary(mesh, fdim, on_top)
+
+#top.mark(sub_domains, 2)
+
+
+
 
 # Any boundary that is not on the outside edge of the domain is assumed
 # to be at the cylinder
@@ -408,14 +420,28 @@ if cylinder_mesh:
 print("**** Setting boundary conditions . . . ")
 
 # vector for velocity on top boundary
-topv  = Expression((" 0.5*h",  "0.0"), h = height, degree=1)
+#topv  = Expression((" 0.5*h",  "0.0"), h = height, degree=1)
+def top_velocity_expression(x):
+    return np.stack((0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
+top_velocity = Function(V)
+top_velocity.interpolate(top_velocity_expression)
 
 # vector for velocity on bottom boundary
-bottomv   = Expression(("-0.5*h", "0.0"), h = height , degree=1)
+#bottomv   = Expression(("-0.5*h", "0.0"), h = height , degree=1)
+#bottomv = Constant(mesh, (-0.5*height, 0.0))
+def bottom_velocity_expression(x):
+    return np.stack((-0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
+bottom_velocity = Function(V)
+bottom_velocity.interpolate(bottom_velocity_expression)
 
 # Pinpoint for pressure
-pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
-pinpoint = CompiledSubDomain(pin_str)
+#pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
+#pinpoint = CompiledSubDomain(pin_str)
+def at_pin_point(x):
+    return np.isclose(x.T, [0.0, -0.5*height, 0.0])
+zero = Function(Q)
+with zero.vector.localForm() as zero_local:
+    zero_local.set(0.0)
 
 if cylinder_mesh:
     # bit of surface around cylinder
@@ -425,13 +451,19 @@ if cylinder_mesh:
 # Create boundary conditions
 
 # specified velocity on top
-Vbc0 = DirichletBC(W.sub(0), topv, top)
+top_v_dofs = locate_dofs_topological(W.sub(0), fdim, top_facets)
+Vbc0 = dirichletbc(top_velocity, top_v_dofs)
+#Vbc0 = DirichletBC(W.sub(0), topv, top)
 
 # specified velocity on bottom
-Vbc1 = DirichletBC(W.sub(0), bottomv, bottom)
+#Vbc1 = DirichletBC(W.sub(0), bottomv, bottom)
+bottom_v_dofs = locate_dofs_topological(W.sub(0), fdim, bottom_facets)
+Vbc1 = dirichletbc(bottom_velocity, bottom_v_dofs)
 
 # set p = 0 at origin
-Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
+pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
+#Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
+Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
 
 # Collect boundary conditions
 Vbcs = [Vbc0, Vbc1, Vbc2]
@@ -440,7 +472,7 @@ Vbcs = [Vbc0, Vbc1, Vbc2]
 # Solution functions
 # ======================================================================
 
-info ("**** Defining solution functions . . .")
+print("**** Defining solution functions . . .")
 
 # Stokes-like solution (u, p)
 U = Function(W)
