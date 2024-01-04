@@ -476,29 +476,29 @@ if cylinder_mesh:
 # Create boundary conditions
 
 # specified velocity on top
-top_v_dofs = locate_dofs_topological(W.sub(0), fdim, top_facets)
-Vbc0 = dirichletbc(base_velocity, top_v_dofs)
+top_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, top_facets)
+Vbc0 = dirichletbc(base_velocity, top_v_dofs, W.sub(0))
 #Vbc0 = DirichletBC(W.sub(0), topv, top)
 
 # specified velocity on bottom
 #Vbc1 = DirichletBC(W.sub(0), bottomv, bottom)
-bottom_v_dofs = locate_dofs_topological(W.sub(0), fdim, bottom_facets)
-Vbc1 = dirichletbc(base_velocity, bottom_v_dofs)
+bottom_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, bottom_facets)
+Vbc1 = dirichletbc(base_velocity, bottom_v_dofs, W.sub(0))
 
 # set p = 0 at origin
-pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
+#pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
 #Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
-Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
+#Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
 
-left_v_dofs = locate_dofs_topological(W.sub(0), fdim, left_facets)
-Vbc3 = dirichletbc(base_velocity, left_v_dofs)
+left_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, left_facets)
+Vbc3 = dirichletbc(base_velocity, left_v_dofs, W.sub(0))
 
-right_v_dofs = locate_dofs_topological(W.sub(0), fdim, right_facets)
-Vbc4 = dirichletbc(base_velocity, right_v_dofs)
+right_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, right_facets)
+Vbc4 = dirichletbc(base_velocity, right_v_dofs, W.sub(0))
 
 
 # Collect boundary conditions
-Vbcs = [Vbc0, Vbc1, Vbc2, Vbc3, Vbc4]
+Vbcs = [Vbc0, Vbc1, Vbc3, Vbc4]
 
 
 ## Periodic bcs 
