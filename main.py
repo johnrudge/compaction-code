@@ -41,7 +41,7 @@
 # syntax change: from dolfin import MeshFunction, Mesh, Point
 # syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
-from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace,   Expression, locate_dofs_geometrical, locate_dofs_topological, form
+from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace, Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
@@ -49,7 +49,7 @@ from dolfinx.io import VTKFile
 #from dolfinx_mpc import MultiPointConstraint, NonlinearProblem
 from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
 from dolfinx.nls.petsc import NewtonSolver
-from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
+from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure
 import numpy as np
 import sys, math
 import core
@@ -82,26 +82,32 @@ def porosity_forms(V, phi0, u, dt):
 
 def linear_stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
+    dx = Measure("dx", W.mesh)
+
 
     if cylinder_mesh:
         (v, q, lam) = TestFunctions(W)
         u, p, omega = split(U)
     else:
+        print("NO cyl")
         (v, q) = TestFunctions(W)
-        w = TrialFunction(W)
-        u, p = split(w)
+        (u, p) = TrialFunctions(W)
 
-    srate      = physics.strain_rate(u)
-    shear_visc = physics.eta(phi, srate, param)
-    bulk_visc  = physics.zeta(phi, shear_visc, param)
-    perm       = physics.perm(phi, param)
+    #srate      = physics.strain_rate(u)
+    #srate = Constant(W.mesh, 1.0)
+    #shear_visc = physics.eta(phi, srate, param)
+    #bulk_visc  = physics.zeta(phi, shear_visc, param)
+    shear_visc = 1.0
+    bulk_visc = 5.0/3.0
+    #perm       = physics.perm(phi, param)
+    perm = 1.0
     F          = 2.0*shear_visc*inner(sym(grad(u)), sym(grad(v)))*dx \
                  + (rzeta*bulk_visc - shear_visc*2.0/3.0)*div(u)*div(v)*dx \
                  - p*div(v)*dx - q*div(u)*dx \
                  - (R*R/(rzeta + 4.0/3.0))*perm*dot(grad(p), grad(q))*dx
 
     # Stokes source term -- will be zero for now
-    f  = Constant(W.mesh, (0.0, 0.0))
+    f  = Constant(W.mesh, (1.0, 0.0))
     F -= dot(f, v)*dx
     return lhs(F), rhs(F)
 
@@ -492,7 +498,7 @@ Vbc4 = dirichletbc(base_velocity, right_v_dofs)
 
 
 # Collect boundary conditions
-Vbcs = [Vbc0, Vbc1, Vbc3, Vbc4]
+Vbcs = [Vbc0, Vbc1, Vbc2, Vbc3, Vbc4]
 
 
 ## Periodic bcs 
@@ -532,7 +538,7 @@ print("Getting porosity form")
 a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
 a_stokes, L_stokes = linear_stokes_forms(W, phi0, dt, param, cylinder_mesh)
-#F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
+F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 #a_stokes = lhs(F_stokes)
 #L_stokes = rhs(F_stokes)
 
