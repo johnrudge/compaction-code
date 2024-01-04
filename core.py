@@ -16,7 +16,7 @@
 # ======================================================================
 
 # syntax change: from dolfin import info, project
-from dolfinx.fem import functionspace, assemble
+from dolfinx.fem import FunctionSpace, assemble
 from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split
 import math, sys, os, string
  
@@ -26,7 +26,7 @@ def u_max(U, cylinder_mesh):
     """Return |u|_max for a U = (u, p) systems"""
 
     mesh   = U.function_space().mesh()
-    V      = functionspace(mesh, "Discontinuous Lagrange", 0)
+    V      = FunctionSpace(mesh, "Discontinuous Lagrange", 0)
     v      = TestFunction(V)
 
     if cylinder_mesh:
