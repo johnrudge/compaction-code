@@ -96,7 +96,7 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
                  - (R*R/(rzeta + 4.0/3.0))*perm*dot(grad(p), grad(q))*dx
 
     # Stokes source term -- will be zero for now
-    f  = Constant((0.0, 0.0))
+    f  = Constant(W.mesh, (0.0, 0.0))
     F -= dot(f, v)*dx
 
     # Adjustment of Stokes-type equation for cylinder using Lagrange
@@ -492,7 +492,8 @@ phi1 = Function(X)
 # ======================================================================
 
 # Time step. Use Expression to avoid form re-compilation
-dt = Expression("dt", dt=0.0, degree = 1)
+#dt = Expression("dt", dt=0.0, degree = 1)
+dt = Constant(mesh, 0.0)
 
 # Get forms
 print("Getting porosity form")

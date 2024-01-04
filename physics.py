@@ -160,9 +160,6 @@ def get_rotation_rate(omega, mesh):
 def print_cylinder_diagnostics(phi, p, u, omega, param, mesh, ds_cylinder, logfile):
     """Print various diagnostics about the cylinder, like torque, rigid body rotationness, and rotation rate"""
 
-    # MPI
-    comm = MPI.comm_world
-
     total_torque = assemble(torque(phi, p, u, param, mesh, ds_cylinder))
     print("**** Torque in numerical solution = %g" % total_torque)
     if MPI.rank(comm) == 0:
@@ -201,9 +198,6 @@ def initial_porosity(param, X):
 
     phi_min = phiB - amplitude
     phi_max = phiB + amplitude
-
-    # MPI command needed for HDF5
-    comm = MPI.comm_world
 
     if (read_initial_porosity == 1):
 
@@ -262,35 +256,40 @@ def initial_porosity(param, X):
             shift    = numpy.random.rand(2, nr_sines)
             k_rand   = k_0 * numpy.random.rand(2, nr_sines)
 
-        class IC_porosity(UserExpression):
-            def eval(self, v, x):
+        #class IC_porosity(UserExpression):
+        #    def eval(self, v, x):
+        def IC_porosity(x):
+            v = numpy.zeros(x.shape[1])
+            
+            # Uniform initial field
+            if (initial_porosity_field == 'uniform'):
+                v[:] = phiB
 
-                # Uniform initial field
-                if (initial_porosity_field == 'uniform'):
-                    v[0] = phiB
+            # Plane wave initial field
+            if (initial_porosity_field == 'plane_wave'):
+                v[:] = phiB*(1.0 + amplitude*cos(k_0*(x[0,:]*sin(angle_0) + x[1,:]*cos(angle_0))))
 
-                # Plane wave initial field
-                if (initial_porosity_field == 'plane_wave'):
-                    v[0] = phiB*(1.0 + amplitude*cos(k_0*(x[0]*sin(angle_0) + x[1]*cos(angle_0))))
+            # Sinusoidal initial field
+            # FIXME: Only works properly when run in serial (otherwise see proc boundaries)
+            if (initial_porosity_field == 'sinusoidal'):
+                nr       = 0
+                v[:]     = 0.0
+                while (nr < nr_sines):
+                    v[:]   += (1.0 / float(nr_sines)) * phiB*(1.0 + amplitude * \
+                                sin(k_rand[0][nr]*(x[0,:] + shift[0][nr])) * \
+                                sin(k_rand[1][nr]*(x[1,:] + shift[1][nr])))
+                    nr     += 1
 
-                # Sinusoidal initial field
-                # FIXME: Only works properly when run in serial (otherwise see proc boundaries)
-                if (initial_porosity_field == 'sinusoidal'):
-                    nr       = 0
-                    v[0]     = 0.0
-                    while (nr < nr_sines):
-                        v[0]   += (1.0 / float(nr_sines)) * phiB*(1.0 + amplitude * \
-                                   sin(k_rand[0][nr]*(x[0] + shift[0][nr])) * \
-                                   sin(k_rand[1][nr]*(x[1] + shift[1][nr])))
-                        nr     += 1
+            # Perlin noise initial field
+            if initial_porosity_field == 'perlin':
+                xn = (x[0,:]/height) % aspect
+                yn = (x[1,:]/height) % 1.0
+                for i in range(len(v)):
+                    # JR -- need to avoid a loop here...
+                    v[i] = phiB*(1.0 + amplitude*pnoise2(xn[i], yn[i], octaves=16, persistence=0.5, repeatx=aspect, repeaty=1.0))
+            return v
 
-                # Perlin noise initial field
-                if initial_porosity_field == 'perlin':
-                    xn = (x[0]/height) % aspect
-                    yn = (x[1]/height) % 1.0
-                    v[0] = phiB*(1.0 + amplitude*pnoise2(xn, yn, octaves=16, persistence=0.5, repeatx=aspect, repeaty=1.0))
-
-        return IC_porosity()
+        return IC_porosity
 
 # ======================================================================
 
