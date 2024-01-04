@@ -41,7 +41,7 @@
 # syntax change: from dolfin import MeshFunction, Mesh, Point
 # syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
-from dolfinx.fem import Function, Constant, dirichletbc, functionspace,   Expression, locate_dofs_geometrical, locate_dofs_topological, form
+from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace,   Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
@@ -368,24 +368,24 @@ RE = FiniteElement("Real", mesh.ufl_cell(), 0)
 # Define function spaces
 print("**** Defining function spaces")
 # Velocity
-V = functionspace(mesh, P2)
+V = FunctionSpace(mesh, P2)
 
 # Pressure
-Q = functionspace(mesh, P1)
+Q = FunctionSpace(mesh, P1)
 
 # Porosity
-X = functionspace(mesh, P1)
+X = FunctionSpace(mesh, P1)
 
 # Create mixed function space
 if cylinder_mesh:
     # Lagrange multiplier for torque
-    L = functionspace(mesh, RE)
+    L = FunctionSpace(mesh, RE)
     print("**** Creating mixed function space")
     TH = MixedElement([P2, P1, RE])
-    W = functionspace(mesh, TH)
+    W = FunctionSpace(mesh, TH)
 else:
     TH = MixedElement([P2, P1])
-    W = functionspace(mesh, TH)
+    W = FunctionSpace(mesh, TH)
 
 
 
@@ -394,10 +394,10 @@ else:
 # which creates problems in the postprocessing file where BC are not defined)
 print("**** Defining h5 output function spaces")
 # Velocity
-Y = functionspace(mesh, P2)
+Y = FunctionSpace(mesh, P2)
 
 # Pressure and porosity
-Z = functionspace(mesh, P1)
+Z = FunctionSpace(mesh, P1)
 
 # ======================================================================
 # Boundaries and boundary conditions
