@@ -14,13 +14,10 @@
 # Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-from mpi4py import MPI
 # syntax change: from dolfin import info, UserExpression, 
 from ufl import sqrt, inner, FacetNormal, dot, sym, grad, exp
 from dolfinx.fem import Expression, assemble, FunctionSpace
 import numpy, math, sys
-
-comm = MPI.COMM_WORLD
 
 # ======================================================================
 
@@ -267,7 +264,7 @@ def initial_porosity(param, X):
 
             # Plane wave initial field
             if (initial_porosity_field == 'plane_wave'):
-                v[:] = phiB*(1.0 + amplitude*cos(k_0*(x[0,:]*sin(angle_0) + x[1,:]*cos(angle_0))))
+                v[:] = phiB*(1.0 + amplitude*numpy.cos(k_0*(x[0,:]*numpy.sin(angle_0) + x[1,:]*numpy.cos(angle_0))))
 
             # Sinusoidal initial field
             # FIXME: Only works properly when run in serial (otherwise see proc boundaries)
@@ -276,8 +273,8 @@ def initial_porosity(param, X):
                 v[:]     = 0.0
                 while (nr < nr_sines):
                     v[:]   += (1.0 / float(nr_sines)) * phiB*(1.0 + amplitude * \
-                                sin(k_rand[0][nr]*(x[0,:] + shift[0][nr])) * \
-                                sin(k_rand[1][nr]*(x[1,:] + shift[1][nr])))
+                                numpy.sin(k_rand[0][nr]*(x[0,:] + shift[0][nr])) * \
+                                numpy.sin(k_rand[1][nr]*(x[1,:] + shift[1][nr])))
                     nr     += 1
 
             # Perlin noise initial field

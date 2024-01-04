@@ -46,11 +46,12 @@ from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector
 from dolfinx.io import VTKFile
-#from dolfinx_mpc import LinearProblem, MultiPointConstraint, NonLinearProblem
-from dolfinx.fem.petsc import NonlinearProblem
+#from dolfinx_mpc import MultiPointConstraint, NonlinearProblem
+from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
 from dolfinx.nls.petsc import NewtonSolver
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction,  TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement
-import numpy, sys, math
+import numpy as np
+import sys, math
 import core
 import physics
 import analysis
@@ -78,6 +79,32 @@ def porosity_forms(V, phi0, u, dt):
     F       += stab
 
     return lhs(F), rhs(F)
+
+def linear_stokes_forms(W, phi, dt, param, cylinder_mesh):
+    """Return forms for Stokes-like problem"""
+
+    if cylinder_mesh:
+        (v, q, lam) = TestFunctions(W)
+        u, p, omega = split(U)
+    else:
+        (v, q) = TestFunctions(W)
+        w = TrialFunction(W)
+        u, p = split(w)
+
+    srate      = physics.strain_rate(u)
+    shear_visc = physics.eta(phi, srate, param)
+    bulk_visc  = physics.zeta(phi, shear_visc, param)
+    perm       = physics.perm(phi, param)
+    F          = 2.0*shear_visc*inner(sym(grad(u)), sym(grad(v)))*dx \
+                 + (rzeta*bulk_visc - shear_visc*2.0/3.0)*div(u)*div(v)*dx \
+                 - p*div(v)*dx - q*div(u)*dx \
+                 - (R*R/(rzeta + 4.0/3.0))*perm*dot(grad(p), grad(q))*dx
+
+    # Stokes source term -- will be zero for now
+    f  = Constant(W.mesh, (0.0, 0.0))
+    F -= dot(f, v)*dx
+    return lhs(F), rhs(F)
+
 
 def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
@@ -249,7 +276,6 @@ else:
     else:
         #mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
         #                         int(aspect*el), int(el), meshtype)
-        import numpy as np
         mesh = create_rectangle(comm, \
                         [np.array([0, 0]), np.array([aspect*height, height])], \
                         [int(aspect*el), int(el)])
@@ -313,13 +339,13 @@ for x in mesh.geometry.x:
         #y[0] = x[0] - height*aspect
         #y[1] = x[1]
 
-def periodic_boundary(x):
-    return np.isclose(x[0], -0.5*height*aspect, 1.0e-11)
+
 
 def periodic_relation(x):
     y = np.zeros_like(x)
     y[0] = x[0] - height*aspect
     y[1] = x[1]
+    y[2] = x[2]
     return y
 
 
@@ -338,11 +364,6 @@ def periodic_relation(x):
 P2 = VectorElement("Lagrange", mesh.ufl_cell(), degree)
 P1 = FiniteElement("Lagrange", mesh.ufl_cell(), degree-1)
 RE = FiniteElement("Real", mesh.ufl_cell(), 0)
-
-    # JR -- need to reimplement periodic bcs
-    #mpc = MultiPointConstraint(V)
-    #mpc.create_periodic_constraint_geometrical(V, periodic_boundary, periodic_relation, bcs)
-    #mpc.finalize()
 
 # Define function spaces
 print("**** Defining function spaces")
@@ -366,6 +387,9 @@ else:
     TH = MixedElement([P2, P1])
     W = functionspace(mesh, TH)
 
+
+
+
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
 print("**** Defining h5 output function spaces")
@@ -382,30 +406,19 @@ Z = functionspace(mesh, P1)
 # Define and mark boundaries
 print("**** Defining boundaries . . . ")
 
-# Holder for domain markers
-#sub_domains = MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
-
-
-# Mark bottom boundary as 1
-#bottom = CompiledSubDomain("x[1] < (-0.5*height + DOLFIN_EPS) && \
-#                             on_boundary".replace("height", str(height)))
 def on_bottom(x):
     return np.isclose(x[1], -0.5*height)
-bottom_facets = locate_entities_boundary(mesh, fdim, on_bottom)
-
-#bottom.mark(sub_domains, 1)
-
-# Mark top boundary as 2
-#top = CompiledSubDomain("x[1] > ( 0.5*height - DOLFIN_EPS) && \
-#                          on_boundary".replace("height", str(height)))
 def on_top(x):
     return np.isclose(x[1], 0.5*height)
+def on_left(x):
+    return np.isclose(x[0], -0.5*height*aspect)
+def on_right(x):
+    return np.isclose(x[0], 0.5*height*aspect)
+
+bottom_facets = locate_entities_boundary(mesh, fdim, on_bottom)
 top_facets = locate_entities_boundary(mesh, fdim, on_top)
-
-#top.mark(sub_domains, 2)
-
-
-
+left_facets = locate_entities_boundary(mesh, fdim, on_left)
+right_facets = locate_entities_boundary(mesh, fdim, on_right)
 
 # Any boundary that is not on the outside edge of the domain is assumed
 # to be at the cylinder
@@ -422,20 +435,23 @@ if cylinder_mesh:
 # Create boundary condition functions
 print("**** Setting boundary conditions . . . ")
 
-# vector for velocity on top boundary
-#topv  = Expression((" 0.5*h",  "0.0"), h = height, degree=1)
-def top_velocity_expression(x):
-    return np.stack((0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
-top_velocity = Function(V)
-top_velocity.interpolate(top_velocity_expression)
+## vector for velocity on top boundary
+#def top_velocity_expression(x):
+    #return np.stack((0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
+#top_velocity = Function(V)
+#top_velocity.interpolate(top_velocity_expression)
 
-# vector for velocity on bottom boundary
-#bottomv   = Expression(("-0.5*h", "0.0"), h = height , degree=1)
-#bottomv = Constant(mesh, (-0.5*height, 0.0))
-def bottom_velocity_expression(x):
-    return np.stack((-0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
-bottom_velocity = Function(V)
-bottom_velocity.interpolate(bottom_velocity_expression)
+## vector for velocity on bottom boundary
+#def bottom_velocity_expression(x):
+    #return np.stack((-0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
+#bottom_velocity = Function(V)
+#bottom_velocity.interpolate(bottom_velocity_expression)
+
+def base_velocity_expression(x):
+    return np.stack((x[1,:], np.zeros(x.shape[1])))
+base_velocity = Function(V)
+base_velocity.interpolate(base_velocity_expression)
+
 
 # Pinpoint for pressure
 #pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
@@ -455,21 +471,34 @@ if cylinder_mesh:
 
 # specified velocity on top
 top_v_dofs = locate_dofs_topological(W.sub(0), fdim, top_facets)
-Vbc0 = dirichletbc(top_velocity, top_v_dofs)
+Vbc0 = dirichletbc(base_velocity, top_v_dofs)
 #Vbc0 = DirichletBC(W.sub(0), topv, top)
 
 # specified velocity on bottom
 #Vbc1 = DirichletBC(W.sub(0), bottomv, bottom)
 bottom_v_dofs = locate_dofs_topological(W.sub(0), fdim, bottom_facets)
-Vbc1 = dirichletbc(bottom_velocity, bottom_v_dofs)
+Vbc1 = dirichletbc(base_velocity, bottom_v_dofs)
 
 # set p = 0 at origin
 pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
 #Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
 Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
 
+left_v_dofs = locate_dofs_topological(W.sub(0), fdim, left_facets)
+Vbc3 = dirichletbc(base_velocity, left_v_dofs)
+
+right_v_dofs = locate_dofs_topological(W.sub(0), fdim, right_facets)
+Vbc4 = dirichletbc(base_velocity, right_v_dofs)
+
+
 # Collect boundary conditions
-Vbcs = [Vbc0, Vbc1, Vbc2]
+Vbcs = [Vbc0, Vbc1, Vbc3, Vbc4]
+
+
+## Periodic bcs 
+#mpc = MultiPointConstraint(W)
+#mpc.create_periodic_constraint_geometrical(W, periodic_boundary, periodic_relation, Vbcs)
+#mpc.finalize()
 
 # ======================================================================
 # Solution functions
@@ -502,8 +531,8 @@ dt = Constant(mesh, 0.0)
 print("Getting porosity form")
 a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
-#a_stokes, L_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
-F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
+a_stokes, L_stokes = linear_stokes_forms(W, phi0, dt, param, cylinder_mesh)
+#F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 #a_stokes = lhs(F_stokes)
 #L_stokes = rhs(F_stokes)
 
@@ -538,17 +567,24 @@ def v_background(x):
 # Background velocity field
 v0 = Function(V)
 v0.interpolate(v_background)
+# Interpolate initial condition
+U.sub(0).interpolate(v_background)
+U.sub(1).interpolate(zero)
+
+
 
 # Initial velocity field
 # Solve nonlinear Stokes-type system
 print("Solving initial Stokes field")
 # FIXME: Solve fails with the error 'All terms in form must have same rank.'
 #solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
-stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
-stokes_solver = NewtonSolver(comm, stokes_problem)
-stokes_solver.report = True
-stokes_solver.rtol = 1e-3
-stokes_solver.solve(U)
+#stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
+#stokes_solver = NewtonSolver(comm, stokes_problem)
+#stokes_solver.report = True
+#stokes_solver.rtol = 1e-3
+#stokes_solver.solve(U)
+stokes_solver = LinearProblem(a_stokes, L_stokes, u=U, bcs=Vbcs)
+stokes_solver.solve()
 
 #solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
 #                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
