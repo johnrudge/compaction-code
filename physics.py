@@ -293,8 +293,9 @@ def initial_porosity(param, X):
 def check_phi(phi, logfile):
     """Check that porosity phi is within allowable range (0, 1)"""
 
-    phi_min = phi.vector().min()
-    phi_max = phi.vector().max()
+    phi_min = phi.vector.min()
+    phi_max = phi.vector.max()
+    print(phi_max)
     print("**** Minimum porosity = %g" % (phi_min))
     print("**** Maximum porosity = %g" % (phi_max))
 

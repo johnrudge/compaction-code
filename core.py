@@ -16,8 +16,10 @@
 # ======================================================================
 
 # syntax change: from dolfin import info, project
-from dolfinx.fem import FunctionSpace, assemble, Function
-from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split
+from dolfinx.fem import FunctionSpace, Function, form
+from dolfinx.fem.assemble import assemble_vector
+from dolfinx.la import Norm
+from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split, FiniteElement
 import math, sys, os, string
  
 # ======================================================================
@@ -25,8 +27,10 @@ import math, sys, os, string
 def u_max(U, cylinder_mesh):
     """Return |u|_max for a U = (u, p) systems"""
 
-    mesh   = U.function_space().mesh()
-    V      = FunctionSpace(mesh, "Discontinuous Lagrange", 0)
+    mesh   = U.function_space.mesh
+    DG0 = FiniteElement("Discontinuous Lagrange", mesh.ufl_cell(), 0)
+    #V      = FunctionSpace(mesh, "Discontinuous Lagrange", 0)
+    V = FunctionSpace(mesh, DG0)
     v      = TestFunction(V)
 
     if cylinder_mesh:
@@ -37,9 +41,11 @@ def u_max(U, cylinder_mesh):
     #volume = v.cell().volume
     volume = CellVolume(mesh)
     L      = v*sqrt(dot(u, u))/volume*dx
-    b      = assemble(L)
+    b      = assemble_vector(form(L))
 
-    return b.norm("linf")
+    #return b.norm("linf")
+    return b.norm(Norm.linf)
+
 
 # ======================================================================
 
@@ -117,7 +123,7 @@ def parse_param_file(filename):
 
 # ======================================================================
 
-def write_vtk(V, Q, phi, U, v0, shear_visc, bulk_visc, perm, srate, \
+def write_vtk(t, V, Q, phi, U, v0, shear_visc, bulk_visc, perm, srate, \
               vel_pert_out, velocity_out, pressure_out, porosity_out, \
               divU_out, shear_visc_out, bulk_visc_out, perm_out, strain_rate_out):
     """Write vector and scalar fields to files"""

@@ -44,7 +44,7 @@ from mpi4py import MPI
 from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace, Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
-from dolfinx.la import MatrixCSR, Vector
+from dolfinx.la import MatrixCSR, Vector, Norm
 from dolfinx.io import VTKFile
 #from dolfinx_mpc import MultiPointConstraint, NonlinearProblem
 from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
@@ -491,7 +491,7 @@ else:
 phi0 = Function(X)
 
 # Porosity at time t_n+1
-phi1 = Function(X)
+#phi1 = Function(X)
 
 # ======================================================================
 #  Stokes-like and porosity weak formulations
@@ -567,7 +567,7 @@ srate      = physics.strain_rate(u)
 shear_visc = physics.eta(phi0, srate, param)
 bulk_visc  = physics.zeta(phi0, shear_visc, param)
 perm       = physics.perm(phi0, param)
-core.write_vtk(V, Q, phi0, U, v0, shear_visc, bulk_visc, perm, srate, \
+core.write_vtk(0.0, V, Q, phi0, U, v0, shear_visc, bulk_visc, perm, srate, \
                    vel_pert_out, velocity_out, pressure_out, \
                    porosity_out, divU_out, shear_visc_out, \
                    bulk_visc_out, perm_out, strain_rate_out)
@@ -621,17 +621,19 @@ print("-------------------------------\n")
 #  Time loop
 # ======================================================================
 
-# Solver matrices
-A_phi, A_stokes = Matrix(), Matrix()
+## Solver matrices
+#A_phi, A_stokes = MatrixCSR(), MatrixCSR()
 
-# Solver RHS
-b_phi, b_stokes = Vector(), Vector()
+## Solver RHS
+#b_phi, b_stokes = Vector(), Vector()
 
-# Sparsity pattern reset
-reset_sparsity_flag = True
+## Sparsity pattern reset
+#reset_sparsity_flag = True
 
-# Create a direct linear solver for porosity
-solver_phi = LUSolver(A_phi)
+## Create a direct linear solver for porosity
+#solver_phi = LUSolver(A_phi)
+problem_phi = LinearProblem(a_phi, L_phi, bcs = [], u = phi0)
+
 
 # FIXME: Check matrices for symmetry
 # Create a conjugate gradient linear solver for porosity
@@ -639,7 +641,7 @@ solver_phi = LUSolver(A_phi)
 #solver_phi.set_operator(A_phi)
 
 # Create linear solver for Stokes-like problem
-solver_U = LUSolver(A_stokes)
+#solver_U = LUSolver(A_stokes)
 
 tcount = 1
 while (t < tmax):
@@ -654,25 +656,27 @@ while (t < tmax):
     # Compute U and phi1, and update phi0 <- phi1
     print("**** t = %g: Solve phi and U" % t)
 
-    # Assemble system for porosity advection
-    ffc_parameters = dict(quadrature_degree=3, optimize=True)
-    #assemble(a_phi, tensor=A_phi, reset_sparsity=reset_sparsity_flag, \
-    assemble(a_phi, tensor=A_phi, \
-                 form_compiler_parameters=ffc_parameters)
-    #assemble(L_phi, tensor=b_phi, reset_sparsity=reset_sparsity_flag, \
-    assemble(L_phi, tensor=b_phi, \
-                 form_compiler_parameters=ffc_parameters)
+    ## Assemble system for porosity advection
+    #ffc_parameters = dict(quadrature_degree=3, optimize=True)
+    ##assemble(a_phi, tensor=A_phi, reset_sparsity=reset_sparsity_flag, \
+    #assemble(a_phi, tensor=A_phi, \
+                 #form_compiler_parameters=ffc_parameters)
+    ##assemble(L_phi, tensor=b_phi, reset_sparsity=reset_sparsity_flag, \
+    #assemble(L_phi, tensor=b_phi, \
+                 #form_compiler_parameters=ffc_parameters)
 
     # Solve linear porosity advection system
-    solver_phi.solve(phi1.vector(), b_phi)
-    print("Phi vector norms: %g, %g" \
-             % (phi1.vector().norm("l2"), b_phi.norm("l2")))
+    #solver_phi.solve(phi1.vector(), b_phi)
+    problem_phi.solve()
+    
+    print("Phi vector norms: %g" \
+             % (phi0.vector.norm(Norm.l2))) #, b_phi.norm(Norm.l2)))
     if rank == 0:
-        logfile.write("Phi vector norms: %g, %g\n" \
-                          % (phi1.vector().norm("l2"), b_phi.norm("l2")))
+        logfile.write("Phi vector norms: %g\n" \
+                          % (phi0.vector.norm(Norm.l2) ))#, b_phi.norm("l2")))
 
-    # Update porosity
-    phi0.assign(phi1)
+    ## Update porosity
+    #phi0.assign(phi1)
 
     # FIXME: The Stokes solve will currently break (need nonlinear solver)
 
@@ -695,8 +699,9 @@ while (t < tmax):
     #if rank == 0:
     #    logfile.write("U vector norms: %g, %g\n" \
     #                      % (U.vector().norm("l2"), b_stokes.norm("l2")))
-    solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
-                                  solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
+    #solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
+                                  #solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
+    stokes_solver.solve(U)
 
     # Prevent sparsity being re-computed at next solve
     reset_sparsity_flag = False
@@ -704,7 +709,7 @@ while (t < tmax):
     # Calculate the torque and deviation from rigid body rotation -
     # both should be zero
     if cylinder_mesh:
-        physics.print_cylinder_diagnostics(phi1, p, u, omega, \
+        physics.print_cylinder_diagnostics(phi0, p, u, omega, \
                                            param, mesh, ds_cylinder, \
                                            logfile)
 
@@ -717,9 +722,10 @@ while (t < tmax):
 
     # Write results to files with output frequency
     if tcount % out_freq == 0:
+        print("Writing output")
         # Write data to files for quick visualisation
         srate = physics.strain_rate(u)
-        core.write_vtk(V, Q, phi1, U, v0, shear_visc, bulk_visc, perm, srate, \
+        core.write_vtk(t, V, Q, phi0, U, v0, shear_visc, bulk_visc, perm, srate, \
                            vel_pert_out, velocity_out, pressure_out, \
                            porosity_out, divU_out, shear_visc_out, \
                            bulk_visc_out, perm_out, strain_rate_out)
@@ -736,7 +742,8 @@ while (t < tmax):
         #h5file_pres.write(pres, "pressure_%d" % tcount)
 
     # Check that phi is within allowable bounds
-    physics.check_phi(phi1, logfile)
+    # JR - turn off for now
+    #physics.check_phi(phi1, logfile)
 
     # FIXME: Should we add dolfin::Function::sub_vector() function to
     #        avoid the deep copies? Sub-vector views are supported by
