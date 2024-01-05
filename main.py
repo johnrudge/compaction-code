@@ -80,37 +80,6 @@ def porosity_forms(V, phi0, u, dt):
 
     return lhs(F), rhs(F)
 
-def linear_stokes_forms(W, phi, dt, param, cylinder_mesh):
-    """Return forms for Stokes-like problem"""
-    dx = Measure("dx", W.mesh)
-
-
-    if cylinder_mesh:
-        (v, q, lam) = TestFunctions(W)
-        u, p, omega = split(U)
-    else:
-        print("NO cyl")
-        (v, q) = TestFunctions(W)
-        (u, p) = TrialFunctions(W)
-
-    #srate      = physics.strain_rate(u)
-    #srate = Constant(W.mesh, 1.0)
-    #shear_visc = physics.eta(phi, srate, param)
-    #bulk_visc  = physics.zeta(phi, shear_visc, param)
-    shear_visc = 1.0
-    bulk_visc = 5.0/3.0
-    #perm       = physics.perm(phi, param)
-    perm = 1.0
-    F          = 2.0*shear_visc*inner(sym(grad(u)), sym(grad(v)))*dx \
-                 + (rzeta*bulk_visc - shear_visc*2.0/3.0)*div(u)*div(v)*dx \
-                 - p*div(v)*dx - q*div(u)*dx \
-                 - (R*R/(rzeta + 4.0/3.0))*perm*dot(grad(p), grad(q))*dx
-
-    # Stokes source term -- will be zero for now
-    f  = Constant(W.mesh, (1.0, 0.0))
-    F -= dot(f, v)*dx
-    return lhs(F), rhs(F)
-
 
 def stokes_forms(W, phi, dt, param, cylinder_mesh):
     """Return forms for Stokes-like problem"""
@@ -394,8 +363,6 @@ else:
     W = FunctionSpace(mesh, TH)
 
 
-
-
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
 print("**** Defining h5 output function spaces")
@@ -486,9 +453,9 @@ bottom_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, bottom_facets)
 Vbc1 = dirichletbc(base_velocity, bottom_v_dofs, W.sub(0))
 
 # set p = 0 at origin
-#pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
+pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
 #Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
-#Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
+Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
 
 left_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, left_facets)
 Vbc3 = dirichletbc(base_velocity, left_v_dofs, W.sub(0))
@@ -498,7 +465,7 @@ Vbc4 = dirichletbc(base_velocity, right_v_dofs, W.sub(0))
 
 
 # Collect boundary conditions
-Vbcs = [Vbc0, Vbc1, Vbc3, Vbc4]
+Vbcs = [Vbc0, Vbc1, Vbc2, Vbc3, Vbc4]
 
 
 ## Periodic bcs 
@@ -537,10 +504,7 @@ dt = Constant(mesh, 0.0)
 print("Getting porosity form")
 a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
-a_stokes, L_stokes = linear_stokes_forms(W, phi0, dt, param, cylinder_mesh)
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
-#a_stokes = lhs(F_stokes)
-#L_stokes = rhs(F_stokes)
 
 # ======================================================================
 #  Initial porosity
@@ -577,20 +541,14 @@ v0.interpolate(v_background)
 U.sub(0).interpolate(v_background)
 U.sub(1).interpolate(zero)
 
-
-
 # Initial velocity field
 # Solve nonlinear Stokes-type system
 print("Solving initial Stokes field")
-# FIXME: Solve fails with the error 'All terms in form must have same rank.'
-#solve(a_stokes == L_stokes, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True} )
-#stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
-#stokes_solver = NewtonSolver(comm, stokes_problem)
-#stokes_solver.report = True
-#stokes_solver.rtol = 1e-3
-#stokes_solver.solve(U)
-stokes_solver = LinearProblem(a_stokes, L_stokes, u=U, bcs=Vbcs)
-stokes_solver.solve()
+stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
+stokes_solver = NewtonSolver(comm, stokes_problem)
+stokes_solver.report = True
+stokes_solver.rtol = 1e-3
+stokes_solver.solve(U)
 
 #solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
 #                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
