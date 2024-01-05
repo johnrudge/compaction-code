@@ -191,6 +191,7 @@ dt        = param['dt']
 
 # MPI command needed for HDF5
 comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 # Output files for quick visualisation
 output_dir     = "output/"
@@ -239,14 +240,14 @@ else:
 
         # Create a mesh with gmsh
         # NOTE: running this in parallel throws an error about lifeline lost.
-        MPI.barrier(comm)
+        comm.Barrier()
         #mesh_gen_uniform.cylinder_mesh_gen(filename=meshfile, \
         mesh_gen.cylinder_mesh_gen(filename=meshfile, \
                                    aspect=aspect, \
                                    N=el, \
                                    h=height, \
                                    rel_radius=(radius/height))
-        MPI.barrier(comm)
+        comm.Barrier()
         mesh = Mesh(meshfile)
     else:
         #mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
@@ -566,40 +567,40 @@ srate      = physics.strain_rate(u)
 shear_visc = physics.eta(phi0, srate, param)
 bulk_visc  = physics.zeta(phi0, shear_visc, param)
 perm       = physics.perm(phi0, param)
-core.write_vtk(Q, p, phi0, u, v0, shear_visc, bulk_visc, perm, srate, \
+core.write_vtk(V, Q, phi0, U, v0, shear_visc, bulk_visc, perm, srate, \
                    vel_pert_out, velocity_out, pressure_out, \
                    porosity_out, divU_out, shear_visc_out, \
                    bulk_visc_out, perm_out, strain_rate_out)
 
-# Write data to h5 files for postprocessing
-# Porosity
-phi = Function(Z)
-phi.interpolate(phi0)
-#h5file_phi.write(phi, "porosity_%d" % 0)
-#h5file_phi.write(mesh, "mesh_file")
+## Write data to h5 files for postprocessing
+## Porosity
+#phi = Function(Z)
+#phi.interpolate(phi0)
+##h5file_phi.write(phi, "porosity_%d" % 0)
+##h5file_phi.write(mesh, "mesh_file")
 
-# Velocity
-vel = Function(Y)
-vel.interpolate(project(u))
-#h5file_vel.write(vel, "velocity_%d" % 0)
-#h5file_vel.write(mesh, "mesh_file")
+## Velocity
+#vel = Function(Y)
+#vel.interpolate(project(u))
+##h5file_vel.write(vel, "velocity_%d" % 0)
+##h5file_vel.write(mesh, "mesh_file")
 
-# Pressure
-pres = Function(Z)
-pres.interpolate(project(p))
-#h5file_pres.write(pres, "pressure_%d" % 0)
-#h5file_pres.write(mesh, "mesh_file")
+## Pressure
+#pres = Function(Z)
+#pres.interpolate(project(p))
+##h5file_pres.write(pres, "pressure_%d" % 0)
+##h5file_pres.write(mesh, "mesh_file")
 
-if MPI.rank(comm) == 0:
+if rank == 0:
     logfile.write("\nTime step 0: t = 0\n")
 
 # Compare results to shear band growth rates from plane wave
 # benchmark.
 t = 0.0
-MPI.barrier(comm)
-if MPI.rank(comm) == 0 and initial_porosity_field == 'plane_wave':
+comm.Barrier()
+if rank == 0 and initial_porosity_field == 'plane_wave':
     analysis.plane_wave_analysis(Q, u, t, param, logfile)
-MPI.barrier(comm)
+comm.Barrier()
 
 # Computation of analytical compaction rates around cylinder.
 #if initial_porosity_field == 'uniform' and cylinder_mesh:
@@ -646,7 +647,7 @@ while (t < tmax):
         dt.dt = tmax - t
 
     print("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
-    if MPI.rank(comm) == 0:
+    if rank == 0:
         logfile.write("\nTime step %d: t = %g\n" % (tcount, t + dt.dt))
 
     # Solve for U_n+1 and phi_n+1
@@ -666,7 +667,7 @@ while (t < tmax):
     solver_phi.solve(phi1.vector(), b_phi)
     print("Phi vector norms: %g, %g" \
              % (phi1.vector().norm("l2"), b_phi.norm("l2")))
-    if MPI.rank(comm) == 0:
+    if rank == 0:
         logfile.write("Phi vector norms: %g, %g\n" \
                           % (phi1.vector().norm("l2"), b_phi.norm("l2")))
 
@@ -691,7 +692,7 @@ while (t < tmax):
     print("Solving Stokes problem")
     #solver_U.solve(U.vector(), b_stokes)
     #print("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
-    #if MPI.rank(comm) == 0:
+    #if rank == 0:
     #    logfile.write("U vector norms: %g, %g\n" \
     #                      % (U.vector().norm("l2"), b_stokes.norm("l2")))
     solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
@@ -709,30 +710,30 @@ while (t < tmax):
 
     # Compare results to shear band growth rates from plane wave
     # benchmark
-    MPI.barrier(comm)
-    if MPI.rank(comm) == 0 and initial_porosity_field == 'plane_wave':
+    comm.Barrier()
+    if rank == 0 and initial_porosity_field == 'plane_wave':
         analysis.plane_wave_analysis(Q, u, t, param, logfile)
-    MPI.barrier(comm)
+    comm.Barrier()
 
     # Write results to files with output frequency
     if tcount % out_freq == 0:
         # Write data to files for quick visualisation
         srate = physics.strain_rate(u)
-        core.write_vtk(Q, p, phi1, u, v0, shear_visc, bulk_visc, perm, srate, \
+        core.write_vtk(V, Q, phi1, U, v0, shear_visc, bulk_visc, perm, srate, \
                            vel_pert_out, velocity_out, pressure_out, \
                            porosity_out, divU_out, shear_visc_out, \
                            bulk_visc_out, perm_out, strain_rate_out)
 
-        # Write data to h5 files for postprocessing
-        # Porosity
-        phi.interpolate(phi1)
-        h5file_phi.write(phi, "porosity_%d" % tcount)
-        # Velocity
-        vel.interpolate(project(u))
-        h5file_vel.write(vel, "velocity_%d" % tcount)
-        # Pressure
-        pres.interpolate(project(p))   
-        h5file_pres.write(pres, "pressure_%d" % tcount)
+        ## Write data to h5 files for postprocessing
+        ## Porosity
+        #phi.interpolate(phi1)
+        #h5file_phi.write(phi, "porosity_%d" % tcount)
+        ## Velocity
+        #vel.interpolate(project(u))
+        #h5file_vel.write(vel, "velocity_%d" % tcount)
+        ## Pressure
+        #pres.interpolate(project(p))   
+        #h5file_pres.write(pres, "pressure_%d" % tcount)
 
     # Check that phi is within allowable bounds
     physics.check_phi(phi1, logfile)
@@ -750,6 +751,6 @@ while (t < tmax):
     t      += dt.dt
     tcount += 1
 
-if MPI.rank(comm) == 0:
+if rank == 0:
     logfile.write("\nEOF\n")
     logfile.close()

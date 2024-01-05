@@ -16,7 +16,7 @@
 # ======================================================================
 
 # syntax change: from dolfin import info, project
-from dolfinx.fem import FunctionSpace, assemble
+from dolfinx.fem import FunctionSpace, assemble, Function
 from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split
 import math, sys, os, string
  
@@ -117,58 +117,65 @@ def parse_param_file(filename):
 
 # ======================================================================
 
-def write_vtk(Q, p, phi, u, v0, shear_visc, bulk_visc, perm, srate, \
+def write_vtk(V, Q, phi, U, v0, shear_visc, bulk_visc, perm, srate, \
               vel_pert_out, velocity_out, pressure_out, porosity_out, \
               divU_out, shear_visc_out, bulk_visc_out, perm_out, strain_rate_out):
     """Write vector and scalar fields to files"""
     # Note: Renaming fields so that they are easier to distinguish in Paraview
 
     # Velocity field
-    #u.rename("velocity", "")
-    vel_proj = project(u)
-    vel_proj.rename("velocity", "")
-    velocity_out  << vel_proj
+    u, p = U.split()
+    vel_proj = Function(V)
+    vel_proj.interpolate(u)
+    vel_proj.name = "velocity"
+    velocity_out.write_function(vel_proj)
 
     # Velocity perturbation    
-    vel_pert      = u - v0
-    vel_pert_proj = project(vel_pert)
-    vel_pert_proj.rename("vel_perturbation", "")
-    vel_pert_out  << vel_pert_proj
-
+    #vel_pert      = u - v0
+    #vel_pert_proj = project(vel_pert)
+    #vel_pert_proj.rename("vel_perturbation", "")
+    #vel_pert_out  << vel_pert_proj
+    
     # Divergence of velocity == compaction
-    divU_proj     = project(div(u))
-    divU_proj.rename("div_u", "")
-    divU_out      << divU_proj
+    #divU_proj     = project(div(u))
+    #divU_proj.rename("div_u", "")
+    #divU_out      << divU_proj
 
     # Pressure field
     #p.rename("pressure", "")
-    p_proj = project(p)
-    p_proj.rename("pressure", "")
-    pressure_out  << p_proj
+    #p_proj = project(p)
+    #p_proj.rename("pressure", "")
+    #pressure_out  << p_proj
+    p_proj = Function(Q)
+    p_proj.interpolate(p)
+    p_proj.name = "pressure"
+    pressure_out.write_function(p_proj)
     
     # Porosity field
-    phi.rename("porosity", "")
-    porosity_out  << phi
+    #phi.rename("porosity", "")
+    #porosity_out  << phi
+    phi.name = "porosity"
+    porosity_out.write_function(phi)
 
     # Shear viscosity field
-    shear_visc_proj = project(shear_visc, Q)
-    shear_visc_proj.rename("shear_viscosity", "")
-    shear_visc_out  << shear_visc_proj
+    #shear_visc_proj = project(shear_visc, Q)
+    #shear_visc_proj.rename("shear_viscosity", "")
+    #shear_visc_out  << shear_visc_proj
 
     # Bulk viscosity field
-    bulk_visc_proj  = project(bulk_visc, Q)
-    bulk_visc_proj.rename("bulk_viscosity", "")
-    bulk_visc_out   << bulk_visc_proj
+    #bulk_visc_proj  = project(bulk_visc, Q)
+    #bulk_visc_proj.rename("bulk_viscosity", "")
+    #bulk_visc_out   << bulk_visc_proj
 
     # Permeability field
-    perm_proj       = project(perm, Q)
-    perm_proj.rename("permeability", "")
-    perm_out        << perm_proj
+    #perm_proj       = project(perm, Q)
+    #perm_proj.rename("permeability", "")
+    #perm_out        << perm_proj
 
     # Strain rate field (second invariant)
-    srate_proj       = project(srate, Q)
-    srate_proj.rename("strain_rate", "")
-    strain_rate_out  << srate_proj
+    #srate_proj       = project(srate, Q)
+    #srate_proj.rename("strain_rate", "")
+    #strain_rate_out  << srate_proj
 
 # ======================================================================
 
