@@ -46,9 +46,10 @@ from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary
 from dolfinx.la import MatrixCSR, Vector, Norm
 from dolfinx.io import VTKFile
-#from dolfinx_mpc import MultiPointConstraint, NonlinearProblem
-from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
-from dolfinx.nls.petsc import NewtonSolver
+from dolfinx_mpc import MultiPointConstraint, LinearProblem
+from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
+#from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
+#from dolfinx.nls.petsc import NewtonSolver
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure
 import numpy as np
 import sys, math
@@ -319,7 +320,7 @@ for x in mesh.geometry.x:
 
 def periodic_relation(x):
     y = np.zeros_like(x)
-    y[0] = x[0] - height*aspect
+    y[0] = -x[0] 
     y[1] = x[1]
     y[2] = x[2]
     return y
@@ -458,21 +459,26 @@ pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
 #Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
 Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
 
-left_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, left_facets)
-Vbc3 = dirichletbc(base_velocity, left_v_dofs, W.sub(0))
+#left_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, left_facets)
+#Vbc3 = dirichletbc(base_velocity, left_v_dofs, W.sub(0))
 
-right_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, right_facets)
-Vbc4 = dirichletbc(base_velocity, right_v_dofs, W.sub(0))
+#right_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, right_facets)
+#Vbc4 = dirichletbc(base_velocity, right_v_dofs, W.sub(0))
 
 
 # Collect boundary conditions
-Vbcs = [Vbc0, Vbc1, Vbc2, Vbc3, Vbc4]
+Vbcs = [Vbc0, Vbc1, Vbc2]
 
 
 ## Periodic bcs 
-#mpc = MultiPointConstraint(W)
-#mpc.create_periodic_constraint_geometrical(W, periodic_boundary, periodic_relation, Vbcs)
-#mpc.finalize()
+mpc_stokes = MultiPointConstraint(W)
+for i in range(W.num_sub_spaces):
+    mpc_stokes.create_periodic_constraint_geometrical(W.sub(i), on_right, periodic_relation, Vbcs)
+mpc_stokes.finalize()
+
+mpc_porosity = MultiPointConstraint(X)
+mpc_porosity.create_periodic_constraint_geometrical(X, on_right, periodic_relation, [])
+mpc_porosity.finalize()
 
 # ======================================================================
 # Solution functions
@@ -488,7 +494,7 @@ else:
     u, p = split(U)
 
 # Porosity at time t_n
-phi0 = Function(X)
+phi0 = Function(mpc_porosity.function_space)
 
 # Porosity at time t_n+1
 #phi1 = Function(X)
@@ -545,8 +551,8 @@ U.sub(1).interpolate(zero)
 # Initial velocity field
 # Solve nonlinear Stokes-type system
 print("Solving initial Stokes field")
-stokes_problem = NonlinearProblem(F_stokes, U, bcs = Vbcs)
-stokes_solver = NewtonSolver(comm, stokes_problem)
+stokes_problem = NonlinearMPCProblem(F_stokes, U, mpc_stokes, bcs = Vbcs)
+stokes_solver = NewtonSolverMPC(comm, stokes_problem, mpc_stokes)
 stokes_solver.report = True
 stokes_solver.rtol = 1e-3
 stokes_solver.solve(U)
@@ -632,7 +638,7 @@ print("-------------------------------\n")
 
 ## Create a direct linear solver for porosity
 #solver_phi = LUSolver(A_phi)
-problem_phi = LinearProblem(a_phi, L_phi, bcs = [], u = phi0)
+problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, bcs = [], u = phi0)
 
 
 # FIXME: Check matrices for symmetry
