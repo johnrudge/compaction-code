@@ -43,9 +43,9 @@
 from mpi4py import MPI
 from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace, Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
-from dolfinx.mesh import create_rectangle, locate_entities_boundary
+from dolfinx.mesh import create_rectangle, locate_entities_boundary, meshtags
 from dolfinx.la import MatrixCSR, Vector, Norm
-from dolfinx.io import VTKFile
+from dolfinx.io import VTKFile, XDMFFile
 from dolfinx_mpc import MultiPointConstraint, LinearProblem
 from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
 #from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
@@ -320,7 +320,7 @@ for x in mesh.geometry.x:
 
 def periodic_relation(x):
     y = np.zeros_like(x)
-    y[0] = -x[0] 
+    y[0] = - x[0]
     y[1] = x[1]
     y[2] = x[2]
     return y
@@ -394,6 +394,16 @@ bottom_facets = locate_entities_boundary(mesh, fdim, on_bottom)
 top_facets = locate_entities_boundary(mesh, fdim, on_top)
 left_facets = locate_entities_boundary(mesh, fdim, on_left)
 right_facets = locate_entities_boundary(mesh, fdim, on_right)
+facets = np.hstack([bottom_facets, top_facets, left_facets, right_facets])
+
+# Mark mesh
+bottom_marks = np.full_like(bottom_facets, 1)
+top_marks = np.full_like(top_facets, 2)
+left_marks = np.full_like(left_facets, 4)  # miss 3 as used for cylinder
+right_marks = np.full_like(right_facets, 5)
+marks = np.hstack([bottom_marks, top_marks, left_marks, right_marks])
+sort_order = np.argsort(facets)
+facet_tags = meshtags(mesh, mesh.topology.dim - 1, facets[sort_order], marks[sort_order])
 
 # Any boundary that is not on the outside edge of the domain is assumed
 # to be at the cylinder
@@ -473,7 +483,8 @@ Vbcs = [Vbc0, Vbc1, Vbc2]
 ## Periodic bcs 
 mpc_stokes = MultiPointConstraint(W)
 for i in range(W.num_sub_spaces):
-    mpc_stokes.create_periodic_constraint_geometrical(W.sub(i), on_right, periodic_relation, Vbcs)
+    #mpc_stokes.create_periodic_constraint_geometrical(W.sub(i), on_right, periodic_relation, Vbcs)
+    mpc_stokes.create_periodic_constraint_topological(W.sub(i), facet_tags, 5, periodic_relation, Vbcs)
 mpc_stokes.finalize()
 
 mpc_porosity = MultiPointConstraint(X)
