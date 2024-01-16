@@ -402,11 +402,11 @@ def plane_wave_analysis(Q, u, t, param, logfile):
     # Compute current wavenumber and its components
     k_x0      = k_0 * sin(angle_0)
     k_y0      = k_0 * cos(angle_0)
-    k_t       = Constant(sqrt(k_x0**2 + (k_y0 - k_x0*t)**2))
-    angle     = Constant(math.atan2(sin(angle_0), (cos(angle_0) - t * sin(angle_0))) )
+    k_t       = Constant(Q.mesh, sqrt(k_x0**2 + (k_y0 - k_x0*t)**2))
+    angle     = Constant(Q.mesh, math.atan2(math.sin(angle_0), (math.cos(angle_0) - t * math.sin(angle_0))) )
     angle_deg = angle * 180.0/math.pi
-    k_x       = Constant(k_t * sin(float(angle)))
-    k_y       = Constant(k_t * cos(float(angle)))
+    k_x       = Constant(Q.mesh, k_t * math.sin(float(angle)))
+    k_y       = Constant(Q.mesh, k_t * math.cos(float(angle)))
 
     # Compute analytical shear band growth rate
     # (1) Spiegelman 2003 pg5 (27)

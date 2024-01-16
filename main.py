@@ -614,10 +614,10 @@ if rank == 0:
 # Compare results to shear band growth rates from plane wave
 # benchmark.
 t = 0.0
-comm.Barrier()
-if rank == 0 and initial_porosity_field == 'plane_wave':
-    analysis.plane_wave_analysis(Q, u, t, param, logfile)
-comm.Barrier()
+#comm.Barrier()
+#if rank == 0 and initial_porosity_field == 'plane_wave':
+#    analysis.plane_wave_analysis(Q, u, t, param, logfile)
+#comm.Barrier()
 
 # Computation of analytical compaction rates around cylinder.
 #if initial_porosity_field == 'uniform' and cylinder_mesh:
@@ -732,10 +732,10 @@ while (t < tmax):
 
     # Compare results to shear band growth rates from plane wave
     # benchmark
-    comm.Barrier()
-    if rank == 0 and initial_porosity_field == 'plane_wave':
-        analysis.plane_wave_analysis(Q, u, t, param, logfile)
-    comm.Barrier()
+    #comm.Barrier()
+    #if rank == 0 and initial_porosity_field == 'plane_wave':
+    #    analysis.plane_wave_analysis(Q, u, t, param, logfile)
+    #comm.Barrier()
 
     # Write results to files with output frequency
     if tcount % out_freq == 0:
