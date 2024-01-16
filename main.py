@@ -482,13 +482,13 @@ Vbcs = [Vbc0, Vbc1, Vbc2]
 
 ## Periodic bcs 
 mpc_stokes = MultiPointConstraint(W)
-for i in range(W.num_sub_spaces):
-    #mpc_stokes.create_periodic_constraint_geometrical(W.sub(i), on_right, periodic_relation, Vbcs)
-    mpc_stokes.create_periodic_constraint_topological(W.sub(i), facet_tags, 5, periodic_relation, Vbcs)
+mpc_stokes.create_periodic_constraint_topological(W.sub(0).sub(0), facet_tags, 5, periodic_relation, Vbcs)
+mpc_stokes.create_periodic_constraint_topological(W.sub(0).sub(1), facet_tags, 5, periodic_relation, Vbcs)
+mpc_stokes.create_periodic_constraint_topological(W.sub(1), facet_tags, 5, periodic_relation, Vbcs) 
 mpc_stokes.finalize()
 
 mpc_porosity = MultiPointConstraint(X)
-mpc_porosity.create_periodic_constraint_geometrical(X, on_right, periodic_relation, [])
+mpc_porosity.create_periodic_constraint_topological(X, facet_tags, 5, periodic_relation, [])
 mpc_porosity.finalize()
 
 # ======================================================================
@@ -520,7 +520,7 @@ dt = Constant(mesh, 0.0)
 
 # Get forms
 print("Getting porosity form")
-a_phi, L_phi = porosity_forms(X, phi0, u, dt)
+a_phi, L_phi = porosity_forms(mpc_porosity.function_space, phi0, u, dt)
 print("Getting Stokes form")
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 
