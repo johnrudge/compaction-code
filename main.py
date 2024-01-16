@@ -520,7 +520,7 @@ dt = Constant(mesh, 0.0)
 
 # Get forms
 print("Getting porosity form")
-a_phi, L_phi = porosity_forms(mpc_porosity.function_space, phi0, u, dt)
+a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 
