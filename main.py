@@ -69,10 +69,13 @@ def porosity_forms(V, phi0, u, dt):
     w       = TestFunction(V)
     phi_mid = 0.5*(phi1 + phi0)
     
-    x = SpatialCoordinate(V.mesh)
-    u = as_vector([x[1], 0.0])
+    #x = SpatialCoordinate(V.mesh)
+    #u = as_vector([x[1], 0.0])
+    #u = as_vector([0.0, 0.0])
+    
     
     F = w*(phi1 - phi0 + dt*(dot(u, grad(phi_mid)) - (1.0 - phi_mid)*div(u)))*dx
+    #F = w*(phi1 - phi0)*dx
 
     ## SUPG stabilisation term
     #h_SUPG   = CellDiameter(mesh)
@@ -510,6 +513,7 @@ else:
 
 # Porosity at time t_n
 phi0 = Function(mpc_porosity.function_space)
+#phi0 = Function(X)
 
 # Porosity at time t_n+1
 #phi1 = Function(X)
@@ -523,8 +527,8 @@ phi0 = Function(mpc_porosity.function_space)
 dt = Constant(mesh, 0.0)
 
 # Get forms
-print("Getting porosity form")
-a_phi, L_phi = porosity_forms(X, phi0, u, dt)
+#print("Getting porosity form")
+#a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 
@@ -653,7 +657,12 @@ print("-------------------------------\n")
 
 ## Create a direct linear solver for porosity
 #solver_phi = LUSolver(A_phi)
-problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, bcs = [], u = phi0)
+#from dolfinx.fem.petsc import LinearProblem as LinearProblemX
+#a_phi, L_phi = porosity_forms(X, phi0, u, dt)
+#sol_opts = {"ksp_type": "preonly", "pc_type": "lu"}  # use LU decomposition
+#problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
+#problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
+
 
 
 # FIXME: Check matrices for symmetry
@@ -664,10 +673,15 @@ problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, bcs = [], u = phi0)
 # Create linear solver for Stokes-like problem
 #solver_U = LUSolver(A_stokes)
 
+a_phi, L_phi = porosity_forms(X, phi0, u, dt)
+sol_opts = {"ksp_type": "preonly", "pc_type": "lu"}  # use LU decomposition
+problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
+    
+dt.dt = 0.005
 tcount = 1
 while (t < tmax):
-    if t < tmax and t + dt.dt > tmax:
-        dt.dt = tmax - t
+    #if t < tmax and t + dt.dt > tmax:
+    #    dt.dt = tmax - t
 
     print("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
     if rank == 0:
@@ -688,6 +702,10 @@ while (t < tmax):
 
     # Solve linear porosity advection system
     #solver_phi.solve(phi1.vector(), b_phi)
+
+
+    #problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
+    
     problem_phi.solve()
     
     print("Phi vector norms: %g" \
@@ -770,8 +788,8 @@ while (t < tmax):
     #        avoid the deep copies? Sub-vector views are supported by
     #        PETSc and EpetraExt
 
-    # Compute new time step
-    dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
+    ## Compute new time step
+    #dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
 
     print("**** New time step dt = %g\n" % dt.dt)
     print("-------------------------------\n")
