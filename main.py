@@ -50,7 +50,7 @@ from dolfinx_mpc import MultiPointConstraint, LinearProblem
 from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
 #from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
 #from dolfinx.nls.petsc import NewtonSolver
-from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure, SpatialCoordinate, as_vector
+from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure
 import numpy as np
 import sys, math
 import core
@@ -69,22 +69,16 @@ def porosity_forms(V, phi0, u, dt):
     w       = TestFunction(V)
     phi_mid = 0.5*(phi1 + phi0)
     
-    #x = SpatialCoordinate(V.mesh)
-    #u = as_vector([x[1], 0.0])
-    #u = as_vector([0.0, 0.0])
-    
-    
     F = w*(phi1 - phi0 + dt*(dot(u, grad(phi_mid)) - (1.0 - phi_mid)*div(u)))*dx
-    #F = w*(phi1 - phi0)*dx
 
-    ## SUPG stabilisation term
-    #h_SUPG   = CellDiameter(mesh)
-    #residual = phi1 - phi0 + dt * (dot(u, grad(phi_mid)) - div(grad(phi_mid)))
-    #unorm    = sqrt(dot(u, u))
-    #aval     = 0.5*h_SUPG*unorm
-    #keff     = 0.5*((aval - 1.0) + abs(aval - 1.0))
-    #stab     = (keff / (unorm * unorm)) * dot(u, grad(w)) * residual * dx
-    #F       += stab
+    # SUPG stabilisation term
+    h_SUPG   = CellDiameter(mesh)
+    residual = phi1 - phi0 + dt * (dot(u, grad(phi_mid)) - div(grad(phi_mid)))
+    unorm    = sqrt(dot(u, u))
+    aval     = 0.5*h_SUPG*unorm
+    keff     = 0.5*((aval - 1.0) + abs(aval - 1.0))
+    stab     = (keff / (unorm * unorm)) * dot(u, grad(w)) * residual * dx
+    F       += stab
 
     return lhs(F), rhs(F)
 
@@ -516,6 +510,7 @@ phi0 = Function(mpc_porosity.function_space)
 #phi0 = Function(X)
 
 # Porosity at time t_n+1
+#phi1 = Function(mpc_porosity.function_space)
 #phi1 = Function(X)
 
 # ======================================================================
@@ -527,8 +522,8 @@ phi0 = Function(mpc_porosity.function_space)
 dt = Constant(mesh, 0.0)
 
 # Get forms
-#print("Getting porosity form")
-#a_phi, L_phi = porosity_forms(X, phi0, u, dt)
+print("Getting porosity form")
+a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 print("Getting Stokes form")
 F_stokes = stokes_forms(W, phi0, dt, param, cylinder_mesh)
 
@@ -637,9 +632,9 @@ t = 0.0
 # ======================================================================
 
 # Set time step
-dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
+dt.value = core.compute_dt(U, cfl, h_min, cylinder_mesh)
 
-print("initial dt = %g \n" % dt.dt)
+print("initial dt = %g \n" % dt.value)
 print("-------------------------------\n")
 
 # ======================================================================
@@ -663,8 +658,6 @@ print("-------------------------------\n")
 #problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
 #problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
 
-
-
 # FIXME: Check matrices for symmetry
 # Create a conjugate gradient linear solver for porosity
 #solver_phi = KrylovSolver("cg", "none")
@@ -672,20 +665,17 @@ print("-------------------------------\n")
 
 # Create linear solver for Stokes-like problem
 #solver_U = LUSolver(A_stokes)
-
-a_phi, L_phi = porosity_forms(X, phi0, u, dt)
 sol_opts = {"ksp_type": "preonly", "pc_type": "lu"}  # use LU decomposition
 problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
     
-dt.dt = 0.005
 tcount = 1
 while (t < tmax):
-    #if t < tmax and t + dt.dt > tmax:
-    #    dt.dt = tmax - t
+    if t < tmax and t + dt.value > tmax:
+        dt.value = tmax - t
 
-    print("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.dt))
+    print("Time step %d: time slab t = %g to t = %g" % (tcount, t, t + dt.value))
     if rank == 0:
-        logfile.write("\nTime step %d: t = %g\n" % (tcount, t + dt.dt))
+        logfile.write("\nTime step %d: t = %g\n" % (tcount, t + dt.value))
 
     # Solve for U_n+1 and phi_n+1
     # Compute U and phi1, and update phi0 <- phi1
@@ -707,6 +697,7 @@ while (t < tmax):
     #problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
     
     problem_phi.solve()
+    #phi0.x.array[:] = phi1.x.array[:]
     
     print("Phi vector norms: %g" \
              % (phi0.vector.norm(Norm.l2))) #, b_phi.norm(Norm.l2)))
@@ -788,13 +779,13 @@ while (t < tmax):
     #        avoid the deep copies? Sub-vector views are supported by
     #        PETSc and EpetraExt
 
-    ## Compute new time step
-    #dt.dt = core.compute_dt(U, cfl, h_min, cylinder_mesh)
+    # Compute new time step
+    dt.value = core.compute_dt(U, cfl, h_min, cylinder_mesh)
 
-    print("**** New time step dt = %g\n" % dt.dt)
+    print("**** New time step dt = %g\n" % dt.value)
     print("-------------------------------\n")
 
-    t      += dt.dt
+    t      += dt.value
     tcount += 1
 
 if rank == 0:
