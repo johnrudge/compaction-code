@@ -50,7 +50,7 @@ from dolfinx_mpc import MultiPointConstraint, LinearProblem
 from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
 #from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
 #from dolfinx.nls.petsc import NewtonSolver
-from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure
+from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure, SpatialCoordinate, as_vector
 import numpy as np
 import sys, math
 import core
@@ -68,16 +68,20 @@ def porosity_forms(V, phi0, u, dt):
     phi1    = TrialFunction(V)
     w       = TestFunction(V)
     phi_mid = 0.5*(phi1 + phi0)
+    
+    x = SpatialCoordinate(V.mesh)
+    u = as_vector([x[1], 0.0])
+    
     F = w*(phi1 - phi0 + dt*(dot(u, grad(phi_mid)) - (1.0 - phi_mid)*div(u)))*dx
 
-    # SUPG stabilisation term
-    h_SUPG   = CellDiameter(mesh)
-    residual = phi1 - phi0 + dt * (dot(u, grad(phi_mid)) - div(grad(phi_mid)))
-    unorm    = sqrt(dot(u, u))
-    aval     = 0.5*h_SUPG*unorm
-    keff     = 0.5*((aval - 1.0) + abs(aval - 1.0))
-    stab     = (keff / (unorm * unorm)) * dot(u, grad(w)) * residual * dx
-    F       += stab
+    ## SUPG stabilisation term
+    #h_SUPG   = CellDiameter(mesh)
+    #residual = phi1 - phi0 + dt * (dot(u, grad(phi_mid)) - div(grad(phi_mid)))
+    #unorm    = sqrt(dot(u, u))
+    #aval     = 0.5*h_SUPG*unorm
+    #keff     = 0.5*((aval - 1.0) + abs(aval - 1.0))
+    #stab     = (keff / (unorm * unorm)) * dot(u, grad(w)) * residual * dx
+    #F       += stab
 
     return lhs(F), rhs(F)
 
