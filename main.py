@@ -32,24 +32,16 @@
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
 #
-# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
-# syntax change: from dolfin import DirichletBC, RectangleMesh, parameters
-# syntax change: from dolfin import Matrix, Vector, LUSolver, SubDomain, CompiledSubDomain
-# syntax change: from dolfin import near, info, solve,  project
-# syntax change: from dolfin import MeshFunction, Mesh, Point
-# syntax change: from dolfin import HDF5File, File
 from mpi4py import MPI
 from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace, Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
-from dolfinx.mesh import create_rectangle, locate_entities_boundary, meshtags
+from dolfinx.mesh import create_rectangle, locate_entities_boundary, meshtags, DiagonalType
 from dolfinx.la import MatrixCSR, Vector, Norm
 from dolfinx.io import VTKFile, XDMFFile
 from dolfinx_mpc import MultiPointConstraint, LinearProblem
 from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
-#from dolfinx.fem.petsc import NonlinearProblem, LinearProblem
-#from dolfinx.nls.petsc import NewtonSolver
 from ufl import sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TrialFunctions, TestFunctions, CellDiameter, lhs, rhs, split, VectorElement, FiniteElement, MixedElement, Measure
 import numpy as np
 import sys, math
@@ -59,9 +51,6 @@ import analysis
 import mesh_gen
 import mesh_gen_uniform
 import datetime
-
-#parameters["form_compiler"]["cpp_optimize"] = True
-#parameters["form_compiler"]["optimize"] = True
 
 def porosity_forms(V, phi0, u, dt):
     """Return forms for porosity transport"""
@@ -132,17 +121,7 @@ def stokes_forms(W, phi, dt, param, cylinder_mesh):
         # Lagrange multiplier term for zero torque on cylinder
         F += lam*dot(vcyl, tu)*ds_cylinder
 
-    #return lhs(F), rhs(F)
     return F
-
-# Write output to process 0 only
-#parameters["std_out_all_processes"] = False
-
-# Needed for interpolating fields without throwing an error
-#parameters['allow_extrapolation'] = True
-
-# Log level
-#set_log_level(DEBUG)
 
 # ======================================================================
 # Run parameters
@@ -233,6 +212,13 @@ if rank == 0:
 # ======================================================================
 
 # Create mesh
+if meshtype == "left/right":
+    diagonal = DiagonalType.left_right
+elif meshtype == "left":
+    diagonal = DiagonalType.left
+else:
+    diagonal = DiagonalType.right
+
 if read_mesh:
     print("**** Reading mesh file: %s" % meshfile)
     mesh = Mesh(meshfile)
@@ -256,14 +242,11 @@ else:
         #                         int(aspect*el), int(el), meshtype)
         mesh = create_rectangle(comm, \
                         [np.array([0, 0]), np.array([aspect*height, height])], \
-                        [int(aspect*el), int(el)])
+                        [int(aspect*el), int(el)], diagonal=diagonal)
         # JR - ignore meshtype with dolfinx syntax for now
         
 
 # Smallest element size. Used to determine time step
-#h_min = MPI.min(comm, mesh.hmin())
-#h_max = MPI.max(comm, mesh.hmax())
-# JR - syntax change
 # mesh properties
 tdim = mesh.topology.dim
 fdim = tdim-1
@@ -279,7 +262,6 @@ if rank == 0:
 
 # Shift mesh such that the center is at the origin
 print("**** Shifting mesh")
-#for x in mesh.coordinates():
 for x in mesh.geometry.x:
     x[0] -= 0.5*height*aspect
     x[1] -= 0.5*height
@@ -303,22 +285,7 @@ for x in mesh.geometry.x:
         else:
             x[1] = int(x[1] * precision - 0.5) / precision
 
-## Subdomain for periodic boundary condition (left and right boundaries)
-#class PeriodicBoundary(SubDomain):
-    #"""Define periodic boundaries"""
-    #def __init__(self, tol):
-        #SubDomain.__init__(self, tol)
-
-    #def inside(self, x, on_boundary):
-        #return on_boundary and near(x[0],-0.5*height*aspect, 1.0e-11)
-
-    #def map(self, x, y):
-        #"""Map slave entity to master entity"""
-        #y[0] = x[0] - height*aspect
-        #y[1] = x[1]
-
-
-
+# Map slave entity to master entity
 def periodic_relation(x):
     y = np.zeros_like(x)
     y[0] = - x[0]
@@ -326,13 +293,6 @@ def periodic_relation(x):
     y[2] = x[2]
     return y
 
-
-## Create an object to prevect director going out of scope. Might fix
-## later.
-#pbc = PeriodicBoundary(1.0e-6)
-
-#mf = PeriodicBoundaryComputation.masters_slaves(mesh, pbc, 1)
-#File("periodic_boundaries.xdmf") << mf
 
 # ======================================================================
 # Function spaces
@@ -421,27 +381,14 @@ if cylinder_mesh:
 # Create boundary condition functions
 print("**** Setting boundary conditions . . . ")
 
-## vector for velocity on top boundary
-#def top_velocity_expression(x):
-    #return np.stack((0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
-#top_velocity = Function(V)
-#top_velocity.interpolate(top_velocity_expression)
-
-## vector for velocity on bottom boundary
-#def bottom_velocity_expression(x):
-    #return np.stack((-0.5*height*np.ones(x.shape[1]), np.zeros(x.shape[1])))    
-#bottom_velocity = Function(V)
-#bottom_velocity.interpolate(bottom_velocity_expression)
-
-def base_velocity_expression(x):
-    return np.stack((x[1,:], np.zeros(x.shape[1])))
+# Define background velocity field due to the simple shear. This is
+# later used to determine velocity perturbations in solid and fluid.
+def v_background(x):
+    return np.stack((x[1,:], np.zeros(x.shape[1])))    
 base_velocity = Function(V)
-base_velocity.interpolate(base_velocity_expression)
-
+base_velocity.interpolate(v_background)
 
 # Pinpoint for pressure
-#pin_str = "std::abs(x[0]) < DOLFIN_EPS && std::abs(x[1]) < (-0.5 + DOLFIN_EPS)"
-#pinpoint = CompiledSubDomain(pin_str)
 def at_pin_point(x):
     return np.isclose(x.T, [0.0, -0.5*height, 0.0])
 zero = Function(Q)
@@ -458,36 +405,26 @@ if cylinder_mesh:
 # specified velocity on top
 top_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, top_facets)
 Vbc0 = dirichletbc(base_velocity, top_v_dofs, W.sub(0))
-#Vbc0 = DirichletBC(W.sub(0), topv, top)
 
 # specified velocity on bottom
-#Vbc1 = DirichletBC(W.sub(0), bottomv, bottom)
 bottom_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, bottom_facets)
 Vbc1 = dirichletbc(base_velocity, bottom_v_dofs, W.sub(0))
 
 # set p = 0 at origin
 pin_dofs = locate_dofs_geometrical((W.sub(1),Q), at_pin_point)
-#Vbc2 = DirichletBC(W.sub(1), 0.0, pinpoint, "pointwise")
 Vbc2 = dirichletbc(zero, pin_dofs, W.sub(1))
-
-#left_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, left_facets)
-#Vbc3 = dirichletbc(base_velocity, left_v_dofs, W.sub(0))
-
-#right_v_dofs = locate_dofs_topological((W.sub(0), V), fdim, right_facets)
-#Vbc4 = dirichletbc(base_velocity, right_v_dofs, W.sub(0))
-
 
 # Collect boundary conditions
 Vbcs = [Vbc0, Vbc1, Vbc2]
 
-
-## Periodic bcs 
+# Periodic bcs for Stokes
 mpc_stokes = MultiPointConstraint(W)
 mpc_stokes.create_periodic_constraint_topological(W.sub(0).sub(0), facet_tags, 5, periodic_relation, Vbcs)
 mpc_stokes.create_periodic_constraint_topological(W.sub(0).sub(1), facet_tags, 5, periodic_relation, Vbcs)
 mpc_stokes.create_periodic_constraint_topological(W.sub(1), facet_tags, 5, periodic_relation, Vbcs) 
 mpc_stokes.finalize()
 
+# Periodic bcs for porosity
 mpc_porosity = MultiPointConstraint(X)
 mpc_porosity.create_periodic_constraint_topological(X, facet_tags, 5, periodic_relation, [])
 mpc_porosity.finalize()
@@ -507,18 +444,12 @@ else:
 
 # Porosity at time t_n
 phi0 = Function(mpc_porosity.function_space)
-#phi0 = Function(X)
-
-# Porosity at time t_n+1
-#phi1 = Function(mpc_porosity.function_space)
-#phi1 = Function(X)
 
 # ======================================================================
 #  Stokes-like and porosity weak formulations
 # ======================================================================
 
-# Time step. Use Expression to avoid form re-compilation
-#dt = Expression("dt", dt=0.0, degree = 1)
+# Time step
 dt = Constant(mesh, 0.0)
 
 # Get forms
@@ -538,7 +469,6 @@ print("**** Defining initial porosity field ...")
 phi_init = physics.initial_porosity(param, X)
 phi0.interpolate(phi_init)
 #initial_porosity_out.write_mesh(mesh)
-#initial_porosity_out.write_function(phi0)
 initial_porosity_out.write_function(phi0)
 initial_porosity_out.close()
 
@@ -549,11 +479,6 @@ else:
     mean_phi = assemble_scalar(form(phi0*dx))/(aspect*height*height)
 print("**** Mean porosity = %g" % (mean_phi))
 
-# Define background velocity field due to the simple shear. This is
-# later used to determine velocity perturbations in solid and fluid.
-#v_background = Expression(("x[1]", "0.0"), degree = 1)
-def v_background(x):
-    return np.stack((x[1,:], np.zeros(x.shape[1])))    
 
 # Background velocity field
 v0 = Function(V)
@@ -570,10 +495,6 @@ stokes_solver = NewtonSolverMPC(comm, stokes_problem, mpc_stokes)
 stokes_solver.report = True
 stokes_solver.rtol = 1e-3
 stokes_solver.solve(U)
-
-#solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
-#                              solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
-
 print("Finished solving initial Stokes field")
 
 # Calculate the torque and deviation from rigid body rotation - both
@@ -641,30 +562,7 @@ print("-------------------------------\n")
 #  Time loop
 # ======================================================================
 
-## Solver matrices
-#A_phi, A_stokes = MatrixCSR(), MatrixCSR()
-
-## Solver RHS
-#b_phi, b_stokes = Vector(), Vector()
-
-## Sparsity pattern reset
-#reset_sparsity_flag = True
-
 ## Create a direct linear solver for porosity
-#solver_phi = LUSolver(A_phi)
-#from dolfinx.fem.petsc import LinearProblem as LinearProblemX
-#a_phi, L_phi = porosity_forms(X, phi0, u, dt)
-#sol_opts = {"ksp_type": "preonly", "pc_type": "lu"}  # use LU decomposition
-#problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
-#problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
-
-# FIXME: Check matrices for symmetry
-# Create a conjugate gradient linear solver for porosity
-#solver_phi = KrylovSolver("cg", "none")
-#solver_phi.set_operator(A_phi)
-
-# Create linear solver for Stokes-like problem
-#solver_U = LUSolver(A_stokes)
 sol_opts = {"ksp_type": "preonly", "pc_type": "lu"}  # use LU decomposition
 problem_phi = LinearProblem(a_phi, L_phi, mpc_porosity, u = phi0, petsc_options=sol_opts)
     
@@ -681,23 +579,8 @@ while (t < tmax):
     # Compute U and phi1, and update phi0 <- phi1
     print("**** t = %g: Solve phi and U" % t)
 
-    ## Assemble system for porosity advection
-    #ffc_parameters = dict(quadrature_degree=3, optimize=True)
-    ##assemble(a_phi, tensor=A_phi, reset_sparsity=reset_sparsity_flag, \
-    #assemble(a_phi, tensor=A_phi, \
-                 #form_compiler_parameters=ffc_parameters)
-    ##assemble(L_phi, tensor=b_phi, reset_sparsity=reset_sparsity_flag, \
-    #assemble(L_phi, tensor=b_phi, \
-                 #form_compiler_parameters=ffc_parameters)
-
     # Solve linear porosity advection system
-    #solver_phi.solve(phi1.vector(), b_phi)
-
-
-    #problem_phi = LinearProblemX(a_phi, L_phi, u = phi0, petsc_options=sol_opts)
-    
     problem_phi.solve()
-    #phi0.x.array[:] = phi1.x.array[:]
     
     print("Phi vector norms: %g" \
              % (phi0.vector.norm(Norm.l2))) #, b_phi.norm(Norm.l2)))
@@ -705,36 +588,9 @@ while (t < tmax):
         logfile.write("Phi vector norms: %g\n" \
                           % (phi0.vector.norm(Norm.l2) ))#, b_phi.norm("l2")))
 
-    ## Update porosity
-    #phi0.assign(phi1)
-
-    # FIXME: The Stokes solve will currently break (need nonlinear solver)
-
-    # Assemble Stokes-type system
-    #ffc_parameters = dict(quadrature_degree=3, optimize=True)
-    # TODO: Start non-Newtonian loop here, need re-assembling for each iteration?
-    ##assemble(a_stokes, tensor=A_stokes, reset_sparsity=reset_sparsity_flag, \
-    #assemble(a_stokes, tensor=A_stokes, \
-    #              form_compiler_parameters=ffc_parameters)
-    ##assemble(L_stokes, tensor=b_stokes, reset_sparsity=reset_sparsity_flag, \
-    #assemble(L_stokes, tensor=b_stokes, \
-    #             form_compiler_parameters=ffc_parameters)
-    #for bc in Vbcs:
-    #    bc.apply(A_stokes, b_stokes)
-
     # Solve linear Stokes-type system
     print("Solving Stokes problem")
-    #solver_U.solve(U.vector(), b_stokes)
-    #print("U vector norms: %g, %g" % (U.vector().norm("l2"), b_stokes.norm("l2")))
-    #if rank == 0:
-    #    logfile.write("U vector norms: %g, %g\n" \
-    #                      % (U.vector().norm("l2"), b_stokes.norm("l2")))
-    #solve(F_stokes == 0, U, Vbcs, form_compiler_parameters={"quadrature_degree": 3, "optimize": True}, \
-                                  #solver_parameters={"newton_solver": {"relative_tolerance": 1e-3}} )
     stokes_solver.solve(U)
-
-    # Prevent sparsity being re-computed at next solve
-    reset_sparsity_flag = False
 
     # Calculate the torque and deviation from rigid body rotation -
     # both should be zero
@@ -774,10 +630,6 @@ while (t < tmax):
     # Check that phi is within allowable bounds
     # JR - turn off for now
     #physics.check_phi(phi1, logfile)
-
-    # FIXME: Should we add dolfin::Function::sub_vector() function to
-    #        avoid the deep copies? Sub-vector views are supported by
-    #        PETSc and EpetraExt
 
     # Compute new time step
     dt.value = core.compute_dt(U, cfl, h_min, cylinder_mesh)
