@@ -238,13 +238,9 @@ else:
         comm.Barrier()
         mesh = Mesh(meshfile)
     else:
-        #mesh = RectangleMesh(Point(0, 0), Point(aspect*height, height), \
-        #                         int(aspect*el), int(el), meshtype)
         mesh = create_rectangle(comm, \
                         [np.array([0, 0]), np.array([aspect*height, height])], \
                         [int(aspect*el), int(el)], diagonal=diagonal)
-        # JR - ignore meshtype with dolfinx syntax for now
-        
 
 # Smallest element size. Used to determine time step
 # mesh properties
