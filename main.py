@@ -38,7 +38,7 @@ from mpi4py import MPI
 from dolfinx.fem import Function, Constant, dirichletbc, FunctionSpace, Expression, locate_dofs_geometrical, locate_dofs_topological, form
 from dolfinx.fem.assemble import assemble_scalar
 from dolfinx.mesh import create_rectangle, locate_entities_boundary, meshtags, DiagonalType
-from dolfinx.la import MatrixCSR, Vector, Norm
+from dolfinx.la import Norm
 from dolfinx.io import VTKFile, XDMFFile
 from dolfinx_mpc import MultiPointConstraint, LinearProblem
 from test_nonlinear_assembly import NonlinearMPCProblem, NewtonSolverMPC
