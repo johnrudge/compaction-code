@@ -221,7 +221,10 @@ else:
 
 if read_mesh:
     print("**** Reading mesh file: %s" % meshfile)
-    mesh = Mesh(meshfile)
+    #mesh = Mesh(meshfile)
+    with XDMFFile(comm, meshfile, "r") as xdmf:
+       mesh = xdmf.read_mesh(name="Grid")
+    
 else:
     print("**** Generating mesh . . . ")
     if cylinder_mesh:

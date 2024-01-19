@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/env python3
 
 # ======================================================================
 # mesh_gen.py
@@ -8,12 +8,12 @@
 # John Rudge, University of Cambridge
 # Laura Alisic, University of Cambridge
 #
-# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 from string import Template
 import os
 import numpy, sys, math
+import meshio
 
 # ======================================================================
 
@@ -23,7 +23,7 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
     max_el_size = h / N
     geofile = "/tmp/" + filename + ".geo"
     mshfile = "/tmp/" + filename + ".msh"
-    xmlfile = filename
+    xdmffile = filename
 
     # gmsh code
     gmshtemplate = Template("""
@@ -63,7 +63,9 @@ def cylinder_mesh_gen(filename, aspect, rel_radius, h, N):
 
     # File conversion
     os.system("gmsh " + geofile + " -2 -clmax " + str(max_el_size))
-    os.system("dolfin-convert "+ mshfile + " " + xmlfile)
+    msh = meshio.read(mshfile)
+    triangles = meshio.Mesh(points=msh.points, cells={"triangle": msh.get_cells_type("triangle")})
+    meshio.write(xdmffile, triangles)
 
     # Clean-up
     os.remove(geofile)

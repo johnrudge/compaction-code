@@ -19,14 +19,15 @@
 # Sander Rhebergen, University of Oxford
 # John Rudge, University of Cambridge
 # Garth N. Wells <gnw20@cam.ac.uk>, University of Cambridge
-#
-# Last modified: 26 Jan 2015 by Laura Alisic
 # ======================================================================
 
 # TODO: Allow for input of gmsh parameters to define refinement from
 #       param_make_mesh.cfg file.
 
-from dolfin import *
+from mpi4py import MPI
+from dolfinx.mesh import create_rectangle, DiagonalType
+from dolfinx.io import XDMFFile
+import numpy as np
 import sys
 import core
 import mesh_gen
@@ -54,24 +55,9 @@ radius        = param['radius']
 # Mesh
 # ======================================================================
 
-# Buid mesh using CSG via CGAL (FIXME: Not periodic)
-#r = Rectangle(0.0, 0.0, height*aspect, height*aspect)
-#c = Circle (0.5*height*aspect, 0.5* height*aspect, radius)
-#g2d = r - c
-#mesh = Mesh(g2d, 150)
-
 # Create mesh
-info("**** Generating mesh . . . ")
+print("**** Generating mesh . . . ")
 if cylinder_mesh:
-
-    #if not has_cgal():
-    #    info("DOLFIN must be compiled with CGAL to run the meshing.")
-    #    sys.exit()
-    #outside  = Rectangle(0, 0, aspect*height, height)
-    #inside   = Circle(0.5*aspect*height, 0.5*height, radius, int(0.5*el))
-    #geometry = outside - inside
-    #mesh     = Mesh(geometry, 100)
-
     # Create a mesh with gmsh
     #mesh_gen.cylinder_mesh_gen(filename=meshfile, \
     #mesh_gen_lessrefinement.cylinder_mesh_gen(filename=meshfile, \
@@ -80,11 +66,20 @@ if cylinder_mesh:
                                 N=el, \
                                 h=height, \
                                 rel_radius=(radius/height))
-    mesh = Mesh(meshfile)
+    with XDMFFile(MPI.COMM_WORLD, meshfile, "r") as xdmf:
+       mesh = xdmf.read_mesh(name="Grid")
+
 else:
-    mesh = RectangleMesh(0, 0, aspect*height, height, \
-                         int(aspect*el), int(el), meshtype)
-    mesh_out = File(meshfile)
-    mesh_out << mesh
+    if meshtype == "left/right":
+        diagonal = DiagonalType.left_right
+    elif meshtype == "left":
+        diagonal = DiagonalType.left
+    else:
+        diagonal = DiagonalType.right
+    mesh = create_rectangle(comm, \
+                [np.array([0, 0]), np.array([aspect*height, height])], \
+                [int(aspect*el), int(el)], diagonal=diagonal)
+    with XDMFFile(MPI.COMM_WORLD, meshfile, "w") as xdmf:
+       xdmf.write_mesh(mesh)
 
 # EOF
