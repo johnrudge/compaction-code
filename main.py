@@ -300,7 +300,6 @@ def periodic_relation(x):
 # Finite elements
 P2 = VectorElement("Lagrange", mesh.ufl_cell(), degree)
 P1 = FiniteElement("Lagrange", mesh.ufl_cell(), degree-1)
-RE = FiniteElement("Real", mesh.ufl_cell(), 0)
 
 # Define function spaces
 print("**** Defining function spaces")
@@ -315,6 +314,8 @@ X = FunctionSpace(mesh, P1)
 
 # Create mixed function space
 if cylinder_mesh:
+    # JR -- real element not currently supported by dolfinx
+    RE = FiniteElement("Real", mesh.ufl_cell(), 0)
     # Lagrange multiplier for torque
     L = FunctionSpace(mesh, RE)
     print("**** Creating mixed function space")
@@ -323,7 +324,6 @@ if cylinder_mesh:
 else:
     TH = MixedElement([P2, P1])
     W = FunctionSpace(mesh, TH)
-
 
 # Function spaces for h5 output only (don't want constrained_domain option,
 # which creates problems in the postprocessing file where BC are not defined)
@@ -362,20 +362,23 @@ top_marks = np.full_like(top_facets, 2)
 left_marks = np.full_like(left_facets, 4)  # miss 3 as used for cylinder
 right_marks = np.full_like(right_facets, 5)
 marks = np.hstack([bottom_marks, top_marks, left_marks, right_marks])
-sort_order = np.argsort(facets)
-facet_tags = meshtags(mesh, mesh.topology.dim - 1, facets[sort_order], marks[sort_order])
 
 # Any boundary that is not on the outside edge of the domain is assumed
 # to be at the cylinder
 if cylinder_mesh:
-    cylinder_str = "x[1] < ( 0.5*height - DOLFIN_EPS) && \
-                    x[1] > (-0.5*height + DOLFIN_EPS) && \
-                    x[0] < ( 0.5*height*aspect - DOLFIN_EPS) && \
-                    x[0] > (-0.5*height*aspect + DOLFIN_EPS) && \
-                    on_boundary".replace("height", str(height)).replace("aspect", str(aspect))
+    def on_cylinder(x):
+        eps = 1e-7
+        return np.all([x[1] < (0.5 * height - eps),
+                  x[1] > (-0.5 * height + eps),
+                  x[0] < (0.5 * height * aspect - eps),
+                  x[0] > (-0.5 * height * aspect + eps)], axis = 0)
+    cylinder_facets = locate_entities_boundary(mesh, fdim, on_cylinder)
+    cylinder_marks = np.full_like(cylinder_facets, 3)
+    facets = np.hstack([facets, cylinder_facets])
+    marks = np.hstack([marks, cylinder_marks])
 
-    cylinder = CompiledSubDomain(cylinder_str)
-    cylinder.mark(sub_domains, 3) # mark cylinder boundary as 3
+sort_order = np.argsort(facets)
+facet_tags = meshtags(mesh, mesh.topology.dim - 1, facets[sort_order], marks[sort_order])
 
 # Create boundary condition functions
 print("**** Setting boundary conditions . . . ")
@@ -396,7 +399,7 @@ with zero.vector.localForm() as zero_local:
 
 if cylinder_mesh:
     # bit of surface around cylinder
-    dss = ds(subdomain_data=sub_domains)
+    dss = ds(subdomain_data=facet_tags)
     ds_cylinder = dss(3)
 
 # Create boundary conditions
