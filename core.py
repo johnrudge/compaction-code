@@ -16,7 +16,7 @@
 # ======================================================================
 
 # syntax change: from dolfin import info, project
-from dolfinx.fem import FunctionSpace, Function, form
+from dolfinx.fem import FunctionSpace, Function, form, Expression
 from dolfinx.fem.assemble import assemble_vector
 from dolfinx.la import Norm
 from ufl import div, sqrt, dot, dx, TestFunction, CellVolume, sqrt, inner, sym, dot, div, dx, grad, TrialFunction, TestFunction, TestFunctions, CellDiameter, lhs, rhs, split, FiniteElement
@@ -143,6 +143,11 @@ def write_vtk(t, V, Q, phi, U, v0, shear_visc, bulk_visc, perm, srate, \
     #vel_pert_out  << vel_pert_proj
     
     # Divergence of velocity == compaction
+    divU_proj = Function(Q)
+    divU_expr = Expression(div(vel_proj), Q.element.interpolation_points())
+    divU_proj.interpolate(divU_expr)
+    divU_out.name = "compaction_rate"
+    divU_out.write_function(divU_proj)
     #divU_proj     = project(div(u))
     #divU_proj.rename("div_u", "")
     #divU_out      << divU_proj
